@@ -26,11 +26,9 @@ export default function CollectPage() {
     mutationFn: createCollection,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendors'] });
-      toast('Collection submitted for admin approval', 'success');
       reset({ collection_date: today });
       setSelectedVendor(null);
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
     },
     onError: (e) => toast(e.response?.data?.message || 'Submission failed', 'error'),
   });
@@ -51,16 +49,33 @@ export default function CollectPage() {
     setSelectedVendor(activeVendors.find((v) => v.id === id) || null);
   };
 
+  if (success) {
+    return (
+      <Layout title="Submit Collection">
+        <div className="max-w-xl">
+          <div className="card p-10 flex flex-col items-center text-center gap-4 animate-slide-in">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-8 w-8 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-slate-800">Collection Submitted!</p>
+              <p className="text-sm text-slate-500 mt-1">Awaiting admin confirmation.</p>
+            </div>
+            <button
+              onClick={() => setSuccess(false)}
+              className="btn-primary mt-2"
+            >
+              Submit Another
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout title="Submit Collection">
       <div className="max-w-xl">
-        {success && (
-          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 px-5 py-4 rounded-2xl mb-6 animate-slide-in">
-            <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-            <p className="text-sm font-medium">Submitted! Awaiting admin confirmation.</p>
-          </div>
-        )}
-
         <div className="card p-6 space-y-5">
           <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
             <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
@@ -140,13 +155,15 @@ export default function CollectPage() {
 
             <button
               type="submit"
-              disabled={isSubmitting || !selectedVendor}
-              className="btn-primary w-full justify-center py-3"
+              disabled={mutation.isPending || !selectedVendor}
+              className="btn-primary w-full justify-center py-3 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSubmitting
-                ? <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                : 'Submit Collection'
-              }
+              {mutation.isPending ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Submitting...
+                </span>
+              ) : 'Submit Collection'}
             </button>
           </form>
         </div>
