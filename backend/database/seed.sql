@@ -1,0 +1,15 @@
+-- ============================================================
+-- Vendor Collection CRM - Seed Data
+-- ============================================================
+-- NOTE: This file cannot hash passwords because SQL has no bcrypt.
+-- Instead, run the Node.js seed script:
+--
+--   node scripts/seed.js
+--
+-- That script will:
+--   1. Create admin user   (admin@crm.com     / Admin@123)
+--   2. Create collector1   (collector1@crm.com / Collect@123)
+--   3. Create collector2   (collector2@crm.com / Collect@123)
+--   4. Insert 4 sample vendors
+--   5. Insert a sample active bill
+-- ============================================================
