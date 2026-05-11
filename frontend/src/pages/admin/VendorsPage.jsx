@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Search, Edit2, Trash2, FileText, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FileText, X, MapPin } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import AlertBadge from '../../components/shared/AlertBadge.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
 import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
 import { getVendors, createVendor, updateVendor, deleteVendor } from '../../api/vendors.api.js';
+import { getCategories } from '../../api/categories.api.js';
 import { createBill } from '../../api/bills.api.js';
 import { formatINR } from '../../utils/currency.js';
 import { formatDate } from '../../utils/date.js';
@@ -17,12 +18,19 @@ function VendorModal({ vendor, onClose }) {
   const toast = useToast();
   const isEdit = !!vendor?.id;
 
+  const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: vendor || {},
+    defaultValues: vendor
+      ? { ...vendor, category_id: vendor.category_id ?? '' }
+      : {},
   });
 
   const mutation = useMutation({
-    mutationFn: (data) => isEdit ? updateVendor(vendor.id, data) : createVendor(data),
+    mutationFn: (data) => {
+      const payload = { ...data, category_id: data.category_id ? parseInt(data.category_id) : null };
+      return isEdit ? updateVendor(vendor.id, payload) : createVendor(payload);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendors'] });
       toast(isEdit ? 'Vendor updated' : 'Vendor created', 'success');
@@ -53,6 +61,21 @@ function VendorModal({ vendor, onClose }) {
             <div>
               <label className="label">Phone</label>
               <input className="input-field" placeholder="+91 XXXXX XXXXX" {...register('phone')} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Category</label>
+              <select className="input-field" {...register('category_id')}>
+                <option value="">— None —</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Route / Area</label>
+              <input className="input-field" placeholder="e.g. North Zone, Route A" {...register('route')} />
             </div>
           </div>
           <div>
@@ -133,11 +156,14 @@ export default function VendorsPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [search, setSearch] = useState('');
-  const [vendorModal, setVendorModal] = useState(null); // null | 'new' | {vendor}
-  const [billModal, setBillModal] = useState(null);     // null | {vendor}
+  const [routeFilter, setRouteFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [vendorModal, setVendorModal] = useState(null);
+  const [billModal, setBillModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: vendors = [], isLoading } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
+  const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
 
   const deleteMutation = useMutation({
     mutationFn: deleteVendor,
@@ -145,15 +171,20 @@ export default function VendorsPage() {
     onError: () => toast('Error removing vendor', 'error'),
   });
 
-  const filtered = vendors.filter((v) =>
-    v.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const routes = [...new Set(vendors.map((v) => v.route).filter(Boolean))].sort();
+
+  const filtered = vendors.filter((v) => {
+    const matchSearch = v.name.toLowerCase().includes(search.toLowerCase());
+    const matchRoute = !routeFilter || v.route === routeFilter;
+    const matchCategory = !categoryFilter || String(v.category_id) === categoryFilter;
+    return matchSearch && matchRoute && matchCategory;
+  });
 
   return (
     <Layout title="Vendors">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6 flex-wrap">
+        <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
@@ -163,6 +194,26 @@ export default function VendorsPage() {
             className="input-field pl-10"
           />
         </div>
+        {routes.length > 0 && (
+          <select
+            value={routeFilter}
+            onChange={(e) => setRouteFilter(e.target.value)}
+            className="input-field w-auto"
+          >
+            <option value="">All Routes</option>
+            {routes.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        )}
+        {categories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="input-field w-auto"
+          >
+            <option value="">All Categories</option>
+            {categories.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+          </select>
+        )}
         <button onClick={() => setVendorModal('new')} className="btn-primary ml-auto">
           <Plus className="h-4 w-4" /> Add Vendor
         </button>
@@ -175,8 +226,9 @@ export default function VendorsPage() {
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
                 <th className="table-th">Vendor</th>
+                <th className="table-th">Category</th>
+                <th className="table-th">Route</th>
                 <th className="table-th">Contact</th>
-                <th className="table-th">Phone</th>
                 <th className="table-th text-right">Active Bill</th>
                 <th className="table-th text-right">Outstanding</th>
                 <th className="table-th">Status</th>
@@ -186,11 +238,11 @@ export default function VendorsPage() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {isLoading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={9} />)
                 : filtered.length === 0
                 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={9} className="py-16 text-center">
                       <p className="text-slate-400 text-sm">No vendors found</p>
                     </td>
                   </tr>
@@ -199,12 +251,30 @@ export default function VendorsPage() {
                   <tr key={v.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="table-td">
                       <p className="font-semibold text-slate-800 group-hover:text-indigo-700 transition-colors">{v.name}</p>
+                      {v.phone && <p className="text-xs text-slate-400">{v.phone}</p>}
+                    </td>
+                    <td className="table-td">
+                      {v.category_name
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">{v.category_name}</span>
+                        : <span className="text-slate-300 text-xs">—</span>}
+                    </td>
+                    <td className="table-td">
+                      {v.route
+                        ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                            <span className="text-slate-600 text-sm">{v.route}</span>
+                          </div>
+                        )
+                        : <span className="text-slate-300 text-xs">—</span>}
                     </td>
                     <td className="table-td text-slate-500">{v.contact_person || '—'}</td>
-                    <td className="table-td text-slate-500">{v.phone || '—'}</td>
                     <td className="table-td text-right">
                       {v.active_bill ? (
-                        <span className="font-semibold text-slate-800">{formatINR(v.active_bill.amount)}</span>
+                        <div>
+                          <p className="font-semibold text-slate-800">{formatINR(v.active_bill.amount)}</p>
+                          <p className="text-xs text-slate-400">Bill #{v.active_bill.id}</p>
+                        </div>
                       ) : (
                         <span className="text-slate-300 text-xs">No bill</span>
                       )}

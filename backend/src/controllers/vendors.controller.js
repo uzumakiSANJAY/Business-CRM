@@ -15,6 +15,9 @@ async function getVendors(req, res, next) {
         v.contact_person,
         v.phone,
         v.address,
+        v.route,
+        v.category_id,
+        cat.name        AS category_name,
         v.created_at,
         b.id            AS bill_id,
         b.amount        AS bill_amount,
@@ -28,6 +31,7 @@ async function getVendors(req, res, next) {
           0
         )               AS confirmed_collected
       FROM vendors v
+      LEFT JOIN categories cat ON cat.id = v.category_id
       LEFT JOIN bills b
         ON b.vendor_id = v.id AND b.status = 'ACTIVE'
       WHERE v.is_active = true
@@ -51,6 +55,9 @@ async function getVendors(req, res, next) {
         contact_person: row.contact_person,
         phone: row.phone,
         address: row.address,
+        route: row.route,
+        category_id: row.category_id,
+        category_name: row.category_name,
         created_at: row.created_at,
         active_bill: row.bill_id
           ? {
@@ -81,7 +88,10 @@ async function getVendorById(req, res, next) {
     const { id } = req.params;
 
     const vendorRes = await pool.query(
-      'SELECT * FROM vendors WHERE id = $1 AND is_active = true',
+      `SELECT v.*, cat.name AS category_name
+       FROM vendors v
+       LEFT JOIN categories cat ON cat.id = v.category_id
+       WHERE v.id = $1 AND v.is_active = true`,
       [id]
     );
 
@@ -166,13 +176,13 @@ async function getVendorById(req, res, next) {
  */
 async function createVendor(req, res, next) {
   try {
-    const { name, contact_person, phone, address } = req.body;
+    const { name, contact_person, phone, address, route, category_id } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO vendors (name, contact_person, phone, address, created_by)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO vendors (name, contact_person, phone, address, route, category_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name.trim(), contact_person || null, phone || null, address || null, req.user.id]
+      [name.trim(), contact_person || null, phone || null, address || null, route || null, category_id || null, req.user.id]
     );
 
     const vendor = result.rows[0];
@@ -197,7 +207,7 @@ async function createVendor(req, res, next) {
 async function updateVendor(req, res, next) {
   try {
     const { id } = req.params;
-    const { name, contact_person, phone, address } = req.body;
+    const { name, contact_person, phone, address, route, category_id } = req.body;
 
     const existing = await pool.query(
       'SELECT id FROM vendors WHERE id = $1 AND is_active = true',
@@ -209,17 +219,21 @@ async function updateVendor(req, res, next) {
 
     const result = await pool.query(
       `UPDATE vendors
-          SET name = COALESCE($1, name),
+          SET name           = COALESCE($1, name),
               contact_person = COALESCE($2, contact_person),
-              phone = COALESCE($3, phone),
-              address = COALESCE($4, address)
-        WHERE id = $5
+              phone          = COALESCE($3, phone),
+              address        = COALESCE($4, address),
+              route          = COALESCE($5, route),
+              category_id    = COALESCE($6, category_id)
+        WHERE id = $7
         RETURNING *`,
       [
         name ? name.trim() : null,
         contact_person !== undefined ? contact_person : null,
         phone !== undefined ? phone : null,
         address !== undefined ? address : null,
+        route !== undefined ? route : null,
+        category_id !== undefined ? category_id : null,
         id,
       ]
     );

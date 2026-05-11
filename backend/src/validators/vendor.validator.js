@@ -19,6 +19,15 @@ const createVendorValidator = [
   body('address')
     .optional({ nullable: true })
     .trim(),
+
+  body('route')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 200 }).withMessage('Route cannot exceed 200 characters'),
+
+  body('category_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 }).withMessage('category_id must be a positive integer'),
 ];
 
 const updateVendorValidator = [
@@ -41,6 +50,15 @@ const updateVendorValidator = [
   body('address')
     .optional({ nullable: true })
     .trim(),
+
+  body('route')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 200 }).withMessage('Route cannot exceed 200 characters'),
+
+  body('category_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 }).withMessage('category_id must be a positive integer'),
 ];
 
 module.exports = { createVendorValidator, updateVendorValidator };

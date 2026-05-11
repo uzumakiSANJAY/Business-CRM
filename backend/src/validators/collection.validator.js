@@ -21,6 +21,11 @@ const createCollectionValidator = [
     .optional({ nullable: true })
     .trim()
     .isLength({ max: 500 }).withMessage('Notes cannot exceed 500 characters'),
+
+  body('payment_mode')
+    .optional({ nullable: true })
+    .isIn(['CASH', 'UPI', 'CREDIT_CARD', 'CHEQUE', 'BANK_TRANSFER'])
+    .withMessage('payment_mode must be CASH, UPI, CREDIT_CARD, CHEQUE, or BANK_TRANSFER'),
 ];
 
 const rejectCollectionValidator = [

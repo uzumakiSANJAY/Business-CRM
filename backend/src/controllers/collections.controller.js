@@ -21,12 +21,14 @@ async function getCollections(req, res, next) {
           c.amount,
           c.collection_date,
           c.notes,
+          c.payment_mode,
           c.status,
           c.rejection_reason,
           c.submitted_at,
           c.confirmed_at,
           c.confirmed_by,
           v.name          AS vendor_name,
+          v.route         AS vendor_route,
           u.name          AS collector_name,
           b.amount        AS bill_amount,
           b.generated_date,
@@ -51,12 +53,14 @@ async function getCollections(req, res, next) {
           c.amount,
           c.collection_date,
           c.notes,
+          c.payment_mode,
           c.status,
           c.rejection_reason,
           c.submitted_at,
           c.confirmed_at,
           c.confirmed_by,
           v.name          AS vendor_name,
+          v.route         AS vendor_route,
           u.name          AS collector_name,
           b.amount        AS bill_amount,
           b.generated_date,
@@ -87,7 +91,7 @@ async function getCollections(req, res, next) {
  */
 async function createCollection(req, res, next) {
   try {
-    const { bill_id, vendor_id, amount, collection_date, notes } = req.body;
+    const { bill_id, vendor_id, amount, collection_date, notes, payment_mode } = req.body;
 
     // Verify the bill exists and is ACTIVE
     const billCheck = await pool.query(
@@ -111,10 +115,10 @@ async function createCollection(req, res, next) {
     }
 
     const result = await pool.query(
-      `INSERT INTO collections (bill_id, vendor_id, collector_id, amount, collection_date, notes)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO collections (bill_id, vendor_id, collector_id, amount, collection_date, notes, payment_mode)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [bill_id, vendor_id, req.user.id, amount, collection_date, notes || null]
+      [bill_id, vendor_id, req.user.id, amount, collection_date, notes || null, payment_mode || 'CASH']
     );
 
     const collection = result.rows[0];

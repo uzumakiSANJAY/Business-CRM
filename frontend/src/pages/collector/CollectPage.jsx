@@ -1,12 +1,21 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { PlusCircle, IndianRupee, CheckCircle } from 'lucide-react';
+import { PlusCircle, IndianRupee, CheckCircle, Receipt, Wallet } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
 import { getVendors } from '../../api/vendors.api.js';
 import { createCollection } from '../../api/collections.api.js';
 import { formatINR } from '../../utils/currency.js';
+import { formatDate } from '../../utils/date.js';
+
+const PAYMENT_MODES = [
+  { value: 'CASH',         label: 'Cash' },
+  { value: 'UPI',          label: 'UPI' },
+  { value: 'CREDIT_CARD',  label: 'Credit Card' },
+  { value: 'CHEQUE',       label: 'Cheque' },
+  { value: 'BANK_TRANSFER',label: 'Bank Transfer' },
+];
 
 export default function CollectPage() {
   const qc = useQueryClient();
@@ -19,14 +28,14 @@ export default function CollectPage() {
   const activeVendors = vendors.filter((v) => v.active_bill);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: { collection_date: today },
+    defaultValues: { collection_date: today, payment_mode: 'CASH' },
   });
 
   const mutation = useMutation({
     mutationFn: createCollection,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendors'] });
-      reset({ collection_date: today });
+      reset({ collection_date: today, payment_mode: 'CASH' });
       setSelectedVendor(null);
       setSuccess(true);
     },
@@ -41,6 +50,7 @@ export default function CollectPage() {
       amount: parseFloat(data.amount),
       collection_date: data.collection_date,
       notes: data.notes,
+      payment_mode: data.payment_mode,
     });
   };
 
@@ -61,10 +71,7 @@ export default function CollectPage() {
               <p className="text-lg font-semibold text-slate-800">Collection Submitted!</p>
               <p className="text-sm text-slate-500 mt-1">Awaiting admin confirmation.</p>
             </div>
-            <button
-              onClick={() => setSuccess(false)}
-              className="btn-primary mt-2"
-            >
+            <button onClick={() => setSuccess(false)} className="btn-primary mt-2">
               Submit Another
             </button>
           </div>
@@ -91,33 +98,73 @@ export default function CollectPage() {
             {/* Vendor select */}
             <div>
               <label className="label">Select Vendor *</label>
-              <select
-                className="input-field"
-                onChange={handleVendorChange}
-                defaultValue=""
-              >
+              <select className="input-field" onChange={handleVendorChange} defaultValue="">
                 <option value="" disabled>Choose a vendor with active bill...</option>
                 {activeVendors.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name} — Outstanding: {formatINR(v.outstanding)}
+                    {v.name}{v.route ? ` — ${v.route}` : ''}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Vendor info card */}
+            {/* Bill info card */}
             {selectedVendor && (
-              <div className="bg-indigo-50 rounded-xl p-4 grid grid-cols-2 gap-3 animate-slide-in">
-                <div>
-                  <p className="text-xs text-indigo-500 font-medium">Bill Amount</p>
-                  <p className="text-sm font-bold text-indigo-800">{formatINR(selectedVendor.active_bill?.amount)}</p>
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-slide-in space-y-3">
+                <div className="flex items-center gap-2 text-indigo-700 text-xs font-semibold uppercase tracking-wide">
+                  <Receipt className="h-3.5 w-3.5" />
+                  Paying Against Bill #{selectedVendor.active_bill.id}
                 </div>
-                <div>
-                  <p className="text-xs text-indigo-500 font-medium">Outstanding</p>
-                  <p className="text-sm font-bold text-rose-700">{formatINR(selectedVendor.outstanding)}</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs text-indigo-500 font-medium">Bill Amount</p>
+                    <p className="text-sm font-bold text-indigo-800">{formatINR(selectedVendor.active_bill.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-indigo-500 font-medium">Outstanding</p>
+                    <p className="text-sm font-bold text-rose-700">{formatINR(selectedVendor.active_bill.outstanding)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-indigo-500 font-medium">Bill Date</p>
+                    <p className="text-sm font-medium text-indigo-700">{formatDate(selectedVendor.active_bill.generated_date)}</p>
+                  </div>
                 </div>
+                {selectedVendor.route && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-indigo-100">
+                    <span className="text-xs text-indigo-500">Route:</span>
+                    <span className="text-xs font-medium text-indigo-700">{selectedVendor.route}</span>
+                    {selectedVendor.address && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedVendor.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-auto text-xs text-indigo-600 underline underline-offset-2 hover:text-indigo-800"
+                      >
+                        Open Maps
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Payment Mode */}
+            <div>
+              <label className="label">
+                <Wallet className="inline h-3.5 w-3.5 mr-1 text-slate-400" />
+                Mode of Payment *
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {PAYMENT_MODES.map(({ value, label }) => (
+                  <label key={value} className="cursor-pointer">
+                    <input type="radio" value={value} className="sr-only peer" {...register('payment_mode', { required: true })} />
+                    <span className="block text-center px-3 py-2 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700 transition-all hover:border-indigo-300">
+                      {label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
             {/* Amount */}
             <div>

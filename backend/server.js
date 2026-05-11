@@ -19,6 +19,7 @@ app.use('/api/collections', require('./src/routes/collections.routes'));
 app.use('/api/collectors', require('./src/routes/collectors.routes'));
 app.use('/api/dashboard', require('./src/routes/dashboard.routes'));
 app.use('/api/audit', require('./src/routes/audit.routes'));
+app.use('/api/categories', require('./src/routes/categories.routes'));
 
 // 404 handler
 app.use((req, res) => {

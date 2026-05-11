@@ -1,12 +1,29 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Clock, X } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, X, Receipt } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import { LoadingSpinner } from '../../components/shared/LoadingSpinner.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
 import { getCollections, confirmCollection, rejectCollection } from '../../api/collections.api.js';
 import { formatINR } from '../../utils/currency.js';
 import { formatDate } from '../../utils/date.js';
+
+const MODE_LABELS = {
+  CASH:          { label: 'Cash',          color: 'bg-emerald-100 text-emerald-700' },
+  UPI:           { label: 'UPI',           color: 'bg-violet-100 text-violet-700' },
+  CREDIT_CARD:   { label: 'Credit Card',   color: 'bg-sky-100 text-sky-700' },
+  CHEQUE:        { label: 'Cheque',        color: 'bg-amber-100 text-amber-700' },
+  BANK_TRANSFER: { label: 'Bank Transfer', color: 'bg-indigo-100 text-indigo-700' },
+};
+
+function PaymentModeBadge({ mode }) {
+  const cfg = MODE_LABELS[mode] || { label: mode, color: 'bg-slate-100 text-slate-600' };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.color}`}>
+      {cfg.label}
+    </span>
+  );
+}
 
 function RejectModal({ collection, onClose }) {
   const qc = useQueryClient();
@@ -35,9 +52,10 @@ function RejectModal({ collection, onClose }) {
           <button onClick={onClose}><X className="h-4 w-4 text-slate-400" /></button>
         </div>
         <div className="p-6 space-y-4">
-          <div className="bg-slate-50 rounded-xl p-4 text-sm">
+          <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1">
             <p className="text-slate-500">Vendor: <span className="font-semibold text-slate-800">{collection.vendor_name}</span></p>
             <p className="text-slate-500">Amount: <span className="font-semibold text-slate-800">{formatINR(collection.amount)}</span></p>
+            <p className="text-slate-500">Mode: <PaymentModeBadge mode={collection.payment_mode} /></p>
           </div>
           <div>
             <label className="label">Reason for rejection *</label>
@@ -65,31 +83,68 @@ export default function PaymentsPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [rejectTarget, setRejectTarget] = useState(null);
+  const [modeFilter, setModeFilter] = useState('');
+  const [routeFilter, setRouteFilter] = useState('');
 
-  const { data: collections = [], isLoading } = useQuery({
+  const { data: allCollections = [], isLoading } = useQuery({
     queryKey: ['collections'],
     queryFn: getCollections,
     select: (d) => d.filter((c) => c.status === 'PENDING'),
   });
 
+  const routes = [...new Set(allCollections.map((c) => c.vendor_route).filter(Boolean))].sort();
+
+  const collections = allCollections.filter((c) => {
+    const matchMode = !modeFilter || c.payment_mode === modeFilter;
+    const matchRoute = !routeFilter || c.vendor_route === routeFilter;
+    return matchMode && matchRoute;
+  });
+
   const confirmMutation = useMutation({
     mutationFn: confirmCollection,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['collections'] }); qc.invalidateQueries({ queryKey: ['dashboard-stats'] }); toast('Payment confirmed!', 'success'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['collections'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      toast('Payment confirmed!', 'success');
+    },
     onError: () => toast('Error confirming payment', 'error'),
   });
 
   return (
     <Layout title="Payment Queue">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full text-sm font-semibold">
           <Clock className="h-4 w-4" />
-          {isLoading ? '...' : collections.length} Pending
+          {isLoading ? '...' : allCollections.length} Pending
         </div>
+
+        {/* Filters */}
+        <select
+          value={modeFilter}
+          onChange={(e) => setModeFilter(e.target.value)}
+          className="input-field w-auto text-sm"
+        >
+          <option value="">All Payment Modes</option>
+          {Object.entries(MODE_LABELS).map(([v, { label }]) => (
+            <option key={v} value={v}>{label}</option>
+          ))}
+        </select>
+
+        {routes.length > 0 && (
+          <select
+            value={routeFilter}
+            onChange={(e) => setRouteFilter(e.target.value)}
+            className="input-field w-auto text-sm"
+          >
+            <option value="">All Routes</option>
+            {routes.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        )}
       </div>
 
       {isLoading ? (
         <LoadingSpinner />
-      ) : collections.length === 0 ? (
+      ) : allCollections.length === 0 ? (
         <div className="card p-16 text-center">
           <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="h-8 w-8 text-emerald-500" />
@@ -97,15 +152,20 @@ export default function PaymentsPage() {
           <p className="text-lg font-semibold text-slate-700">All caught up!</p>
           <p className="text-slate-400 text-sm mt-1">No pending payment confirmations</p>
         </div>
+      ) : collections.length === 0 ? (
+        <div className="card p-10 text-center">
+          <p className="text-slate-400 text-sm">No results for selected filters</p>
+        </div>
       ) : (
         <div className="space-y-4">
           {collections.map((c) => (
             <div key={c.id} className="card p-5 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-card-lg transition-shadow animate-fade-in">
               {/* Info */}
-              <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-4">
                 <div>
                   <p className="text-xs text-slate-400 font-medium mb-0.5">Vendor</p>
                   <p className="text-sm font-semibold text-slate-800">{c.vendor_name}</p>
+                  {c.vendor_route && <p className="text-xs text-slate-400">{c.vendor_route}</p>}
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 font-medium mb-0.5">Collector</p>
@@ -116,8 +176,16 @@ export default function PaymentsPage() {
                   <p className="text-sm font-bold text-emerald-700">{formatINR(c.amount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 font-medium mb-0.5">Date</p>
-                  <p className="text-sm text-slate-600">{formatDate(c.collection_date)}</p>
+                  <p className="text-xs text-slate-400 font-medium mb-0.5">Bill</p>
+                  <div className="flex items-center gap-1">
+                    <Receipt className="h-3 w-3 text-slate-400" />
+                    <p className="text-xs text-slate-600">#{c.bill_id} · {formatINR(c.bill_amount)}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium mb-0.5">Mode / Date</p>
+                  <PaymentModeBadge mode={c.payment_mode} />
+                  <p className="text-xs text-slate-400 mt-0.5">{formatDate(c.collection_date)}</p>
                 </div>
               </div>
               {c.notes && (
