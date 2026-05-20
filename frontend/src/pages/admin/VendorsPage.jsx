@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Search, Edit2, Trash2, FileText, X, MapPin } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FileText, X, MapPin, Receipt } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import AlertBadge from '../../components/shared/AlertBadge.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
@@ -12,6 +12,45 @@ import { getCategories } from '../../api/categories.api.js';
 import { createBill } from '../../api/bills.api.js';
 import { formatINR } from '../../utils/currency.js';
 import { formatDate } from '../../utils/date.js';
+
+function VendorBillsModal({ vendor, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-slide-in">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Active Bills</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{vendor.name}</p>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
+            <X className="h-4 w-4 text-slate-400" />
+          </button>
+        </div>
+        <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+          {vendor.active_bills.map((b) => (
+            <div key={b.id} className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Receipt className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Bill #{b.id}</p>
+                  <p className="text-xs text-slate-400">{formatDate(b.generated_date)}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-slate-700">{formatINR(b.amount)}</p>
+                <p className="text-xs text-rose-600 font-medium">₹{b.outstanding.toLocaleString('en-IN')} due</p>
+              </div>
+              <AlertBadge flag={b.alert_flag} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function VendorModal({ vendor, onClose }) {
   const qc = useQueryClient();
@@ -160,6 +199,7 @@ export default function VendorsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [vendorModal, setVendorModal] = useState(null);
   const [billModal, setBillModal] = useState(null);
+  const [billsPopup, setBillsPopup] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: vendors = [], isLoading } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
@@ -271,8 +311,11 @@ export default function VendorsPage() {
                     <td className="table-td text-slate-500">{v.contact_person || '—'}</td>
                     <td className="table-td text-right">
                       {v.active_bills?.length > 0 ? (
-                        <div>
-                          <p className="font-semibold text-slate-800">{formatINR(v.active_bills[0].amount)}</p>
+                        <button
+                          onClick={() => setBillsPopup(v)}
+                          className="text-right hover:bg-indigo-50 rounded-lg px-2 py-1 transition-colors group w-full"
+                        >
+                          <p className="font-semibold text-slate-800 group-hover:text-indigo-700">{formatINR(v.active_bills[0].amount)}</p>
                           <p className="text-xs text-slate-400">
                             Bill #{v.active_bills[0].id}
                             {v.active_bills.length > 1 && (
@@ -281,7 +324,7 @@ export default function VendorsPage() {
                               </span>
                             )}
                           </p>
-                        </div>
+                        </button>
                       ) : (
                         <span className="text-slate-300 text-xs">No bill</span>
                       )}
@@ -334,6 +377,7 @@ export default function VendorsPage() {
       </div>
 
       {/* Modals */}
+      {billsPopup && <VendorBillsModal vendor={billsPopup} onClose={() => setBillsPopup(null)} />}
       {vendorModal && (
         <VendorModal
           vendor={vendorModal === 'new' ? null : vendorModal}
