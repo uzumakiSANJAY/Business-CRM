@@ -17,37 +17,52 @@ async function getVendors(req, res, next) {
         v.address,
         v.route,
         v.category_id,
-        cat.name        AS category_name,
+        cat.name AS category_name,
         v.created_at,
-        b.id            AS bill_id,
-        b.amount        AS bill_amount,
-        b.generated_date,
-        b.status        AS bill_status,
-        COALESCE(
-          (SELECT SUM(c.amount)
-             FROM collections c
-            WHERE c.bill_id = b.id
-              AND c.status = 'CONFIRMED'),
-          0
-        )               AS confirmed_collected
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id',                  b.id,
+              'amount',              b.amount::float8,
+              'generated_date',      b.generated_date,
+              'confirmed_collected', COALESCE(
+                (SELECT SUM(c.amount)::float8
+                   FROM collections c
+                  WHERE c.bill_id = b.id AND c.status = 'CONFIRMED'),
+                0
+              )
+            ) ORDER BY b.generated_date DESC
+          )
+          FROM bills b
+          WHERE b.vendor_id = v.id AND b.status = 'ACTIVE'
+        ) AS active_bills_json
       FROM vendors v
       LEFT JOIN categories cat ON cat.id = v.category_id
-      LEFT JOIN bills b
-        ON b.vendor_id = v.id AND b.status = 'ACTIVE'
       WHERE v.is_active = true
       ORDER BY v.name ASC
     `);
 
+    const ALERT_PRIORITY = { CRIT: 3, WARN: 2, OK: 1, DONE: 0 };
+
     const vendors = result.rows.map((row) => {
-      const outstanding = row.bill_id
-        ? Math.max(0, parseFloat(row.bill_amount) - parseFloat(row.confirmed_collected))
-        : null;
+      const activeBills = (row.active_bills_json || []).map((b) => {
+        const outstanding = Math.max(0, parseFloat(b.amount) - parseFloat(b.confirmed_collected));
+        return {
+          id: b.id,
+          amount: parseFloat(b.amount),
+          generated_date: b.generated_date,
+          status: 'ACTIVE',
+          outstanding,
+          alert_flag: getAlertFlag(b.generated_date, 'ACTIVE'),
+          days_pending: getDaysPending(b.generated_date),
+        };
+      });
 
-      const alertFlag = row.bill_id
-        ? getAlertFlag(row.generated_date, row.bill_status)
-        : null;
-
-      const daysPending = row.bill_id ? getDaysPending(row.generated_date) : null;
+      const totalOutstanding = activeBills.reduce((sum, b) => sum + b.outstanding, 0);
+      const worstFlag = activeBills.reduce((worst, b) =>
+        (ALERT_PRIORITY[b.alert_flag] || 0) > (ALERT_PRIORITY[worst] || 0) ? b.alert_flag : worst,
+        null
+      );
 
       return {
         id: row.id,
@@ -59,17 +74,10 @@ async function getVendors(req, res, next) {
         category_id: row.category_id,
         category_name: row.category_name,
         created_at: row.created_at,
-        active_bill: row.bill_id
-          ? {
-              id: row.bill_id,
-              amount: parseFloat(row.bill_amount),
-              generated_date: row.generated_date,
-              status: row.bill_status,
-              outstanding,
-              alert_flag: alertFlag,
-              days_pending: daysPending,
-            }
-          : null,
+        active_bills: activeBills,
+        active_bill: activeBills[0] || null,
+        outstanding: activeBills.length > 0 ? totalOutstanding : null,
+        alert_flag: worstFlag,
       };
     });
 

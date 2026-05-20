@@ -21,11 +21,12 @@ export default function CollectPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [selectedVendor, setSelectedVendor] = useState(null);
+  const [selectedBill, setSelectedBill] = useState(null);
   const [success, setSuccess] = useState(false);
   const today = new Date().toISOString().split('T')[0];
 
   const { data: vendors = [] } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
-  const activeVendors = vendors.filter((v) => v.active_bill);
+  const activeVendors = vendors.filter((v) => v.active_bills?.length > 0);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     defaultValues: { collection_date: today, payment_mode: 'CASH' },
@@ -37,15 +38,16 @@ export default function CollectPage() {
       qc.invalidateQueries({ queryKey: ['vendors'] });
       reset({ collection_date: today, payment_mode: 'CASH' });
       setSelectedVendor(null);
+      setSelectedBill(null);
       setSuccess(true);
     },
     onError: (e) => toast(e.response?.data?.message || 'Submission failed', 'error'),
   });
 
   const onSubmit = (data) => {
-    if (!selectedVendor) return;
+    if (!selectedVendor || !selectedBill) return;
     mutation.mutate({
-      bill_id: selectedVendor.active_bill.id,
+      bill_id: selectedBill.id,
       vendor_id: selectedVendor.id,
       amount: parseFloat(data.amount),
       collection_date: data.collection_date,
@@ -56,7 +58,9 @@ export default function CollectPage() {
 
   const handleVendorChange = (e) => {
     const id = parseInt(e.target.value);
-    setSelectedVendor(activeVendors.find((v) => v.id === id) || null);
+    const vendor = activeVendors.find((v) => v.id === id) || null;
+    setSelectedVendor(vendor);
+    setSelectedBill(vendor?.active_bills?.length === 1 ? vendor.active_bills[0] : null);
   };
 
   if (success) {
@@ -108,25 +112,47 @@ export default function CollectPage() {
               </select>
             </div>
 
+            {/* Bill selector — shown only when vendor has multiple active bills */}
+            {selectedVendor && selectedVendor.active_bills.length > 1 && (
+              <div>
+                <label className="label">Select Bill to Collect Against *</label>
+                <select
+                  className="input-field"
+                  value={selectedBill?.id || ''}
+                  onChange={(e) => {
+                    const bill = selectedVendor.active_bills.find((b) => b.id === parseInt(e.target.value));
+                    setSelectedBill(bill || null);
+                  }}
+                >
+                  <option value="" disabled>Choose a bill...</option>
+                  {selectedVendor.active_bills.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      Bill #{b.id} — {formatINR(b.amount)} — {formatDate(b.generated_date)} (Outstanding: {formatINR(b.outstanding)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Bill info card */}
-            {selectedVendor && (
+            {selectedVendor && selectedBill && (
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-slide-in space-y-3">
                 <div className="flex items-center gap-2 text-indigo-700 text-xs font-semibold uppercase tracking-wide">
                   <Receipt className="h-3.5 w-3.5" />
-                  Paying Against Bill #{selectedVendor.active_bill.id}
+                  Paying Against Bill #{selectedBill.id}
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <p className="text-xs text-indigo-500 font-medium">Bill Amount</p>
-                    <p className="text-sm font-bold text-indigo-800">{formatINR(selectedVendor.active_bill.amount)}</p>
+                    <p className="text-sm font-bold text-indigo-800">{formatINR(selectedBill.amount)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-indigo-500 font-medium">Outstanding</p>
-                    <p className="text-sm font-bold text-rose-700">{formatINR(selectedVendor.active_bill.outstanding)}</p>
+                    <p className="text-sm font-bold text-rose-700">{formatINR(selectedBill.outstanding)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-indigo-500 font-medium">Bill Date</p>
-                    <p className="text-sm font-medium text-indigo-700">{formatDate(selectedVendor.active_bill.generated_date)}</p>
+                    <p className="text-sm font-medium text-indigo-700">{formatDate(selectedBill.generated_date)}</p>
                   </div>
                 </div>
                 {selectedVendor.route && (
@@ -202,7 +228,7 @@ export default function CollectPage() {
 
             <button
               type="submit"
-              disabled={mutation.isPending || !selectedVendor}
+              disabled={mutation.isPending || !selectedVendor || !selectedBill}
               className="btn-primary w-full justify-center py-3 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {mutation.isPending ? (

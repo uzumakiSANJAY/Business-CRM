@@ -120,19 +120,6 @@ async function createBill(req, res, next) {
   try {
     const { vendor_id, amount, generated_date } = req.body;
 
-    // RULE 1: Check for existing ACTIVE bill for this vendor
-    const activeCheck = await pool.query(
-      "SELECT id FROM bills WHERE vendor_id = $1 AND status = 'ACTIVE'",
-      [vendor_id]
-    );
-
-    if (activeCheck.rows.length > 0) {
-      return res.status(409).json({
-        message: 'This vendor already has an active bill. Cancel or pay it before generating a new one.',
-        existing_bill_id: activeCheck.rows[0].id,
-      });
-    }
-
     // Verify vendor exists and is active
     const vendorCheck = await pool.query(
       'SELECT id, name FROM vendors WHERE id = $1 AND is_active = true',
@@ -166,12 +153,6 @@ async function createBill(req, res, next) {
 
     res.status(201).json({ bill: { ...bill, amount: parseFloat(bill.amount) } });
   } catch (err) {
-    // Unique index violation (belt-and-suspenders for RULE 1)
-    if (err.code === '23505' && err.constraint === 'one_active_bill_per_vendor') {
-      return res.status(409).json({
-        message: 'This vendor already has an active bill.',
-      });
-    }
     next(err);
   }
 }

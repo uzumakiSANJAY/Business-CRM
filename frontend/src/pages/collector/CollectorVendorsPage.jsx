@@ -13,7 +13,7 @@ export default function CollectorVendorsPage() {
   const [routeFilter, setRouteFilter] = useState('');
   const { data: vendors = [], isLoading } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
 
-  const activeVendors = vendors.filter((v) => v.active_bill);
+  const activeVendors = vendors.filter((v) => v.active_bills?.length > 0);
   const routes = [...new Set(activeVendors.map((v) => v.route).filter(Boolean))].sort();
 
   const filtered = activeVendors.filter((v) => {
@@ -77,7 +77,7 @@ export default function CollectorVendorsPage() {
                   </tr>
                 )
                 : filtered.map((v) => {
-                  const days = v.active_bill ? daysDiff(v.active_bill.generated_date) : 0;
+                  const days = v.active_bills?.[0] ? daysDiff(v.active_bills[0].generated_date) : 0;
                   const mapsUrl = v.address
                     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.address)}`
                     : null;
@@ -109,11 +109,16 @@ export default function CollectorVendorsPage() {
                         )}
                       </td>
                       <td className="table-td text-slate-500">{v.contact_person || '—'}</td>
-                      <td className="table-td text-right font-semibold">{formatINR(v.active_bill?.amount)}</td>
+                      <td className="table-td text-right font-semibold">
+                        {formatINR(v.active_bills?.[0]?.amount)}
+                        {v.active_bills?.length > 1 && (
+                          <span className="block text-xs text-indigo-500 font-normal">{v.active_bills.length} bills</span>
+                        )}
+                      </td>
                       <td className="table-td text-right">
                         <span className="font-bold text-rose-600">{formatINR(v.outstanding)}</span>
                       </td>
-                      <td className="table-td text-slate-500">{formatDate(v.active_bill?.generated_date)}</td>
+                      <td className="table-td text-slate-500">{formatDate(v.active_bills?.[0]?.generated_date)}</td>
                       <td className="table-td text-right">
                         <span className={`font-semibold ${days >= 15 ? 'text-red-600' : days >= 7 ? 'text-amber-600' : 'text-slate-600'}`}>
                           {days}d

@@ -270,28 +270,35 @@ export default function VendorsPage() {
                     </td>
                     <td className="table-td text-slate-500">{v.contact_person || '—'}</td>
                     <td className="table-td text-right">
-                      {v.active_bill ? (
+                      {v.active_bills?.length > 0 ? (
                         <div>
-                          <p className="font-semibold text-slate-800">{formatINR(v.active_bill.amount)}</p>
-                          <p className="text-xs text-slate-400">Bill #{v.active_bill.id}</p>
+                          <p className="font-semibold text-slate-800">{formatINR(v.active_bills[0].amount)}</p>
+                          <p className="text-xs text-slate-400">
+                            Bill #{v.active_bills[0].id}
+                            {v.active_bills.length > 1 && (
+                              <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-xs font-semibold">
+                                +{v.active_bills.length - 1} more
+                              </span>
+                            )}
+                          </p>
                         </div>
                       ) : (
                         <span className="text-slate-300 text-xs">No bill</span>
                       )}
                     </td>
                     <td className="table-td text-right">
-                      {v.active_bill ? (
+                      {v.active_bills?.length > 0 ? (
                         <span className="font-semibold text-rose-600">{formatINR(v.outstanding)}</span>
-                      ) : '—'}
+                      ) : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="table-td">
-                      {v.active_bill
+                      {v.active_bills?.length > 0
                         ? <AlertBadge flag={v.alert_flag} />
                         : <span className="text-xs text-slate-300">—</span>
                       }
                     </td>
                     <td className="table-td text-slate-500">
-                      {v.active_bill ? formatDate(v.active_bill.generated_date) : '—'}
+                      {v.active_bills?.length > 0 ? formatDate(v.active_bills[0].generated_date) : '—'}
                     </td>
                     <td className="table-td">
                       <div className="flex items-center justify-center gap-1">
@@ -306,7 +313,6 @@ export default function VendorsPage() {
                           onClick={() => setBillModal(v)}
                           className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
                           title="Generate bill"
-                          disabled={!!v.active_bill}
                         >
                           <FileText className="h-3.5 w-3.5" />
                         </button>
