@@ -10,6 +10,7 @@ import PaymentsPage from './pages/admin/PaymentsPage.jsx';
 import CollectorsPage from './pages/admin/CollectorsPage.jsx';
 import AuditPage from './pages/admin/AuditPage.jsx';
 import CategoriesPage from './pages/admin/CategoriesPage.jsx';
+import RoutesPage from './pages/admin/RoutesPage.jsx';
 import CollectorVendorsPage from './pages/collector/CollectorVendorsPage.jsx';
 import CollectPage from './pages/collector/CollectPage.jsx';
 
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/admin/collectors"element={<ProtectedRoute role="ADMIN"><CollectorsPage /></ProtectedRoute>} />
         <Route path="/admin/audit"       element={<ProtectedRoute role="ADMIN"><AuditPage /></ProtectedRoute>} />
         <Route path="/admin/categories" element={<ProtectedRoute role="ADMIN"><CategoriesPage /></ProtectedRoute>} />
+        <Route path="/admin/routes"     element={<ProtectedRoute role="ADMIN"><RoutesPage /></ProtectedRoute>} />
 
         {/* Collector routes */}
         <Route path="/collector/vendors" element={<ProtectedRoute role="COLLECTOR"><CollectorVendorsPage /></ProtectedRoute>} />

@@ -9,6 +9,7 @@ import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
 import { getVendors, createVendor, updateVendor, deleteVendor } from '../../api/vendors.api.js';
 import { getCategories } from '../../api/categories.api.js';
+import { getRoutes } from '../../api/routes.api.js';
 import { createBill } from '../../api/bills.api.js';
 import { formatINR } from '../../utils/currency.js';
 import { formatDate } from '../../utils/date.js';
@@ -58,6 +59,7 @@ function VendorModal({ vendor, onClose }) {
   const isEdit = !!vendor?.id;
 
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  const { data: routes = [] } = useQuery({ queryKey: ['routes'], queryFn: getRoutes });
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     defaultValues: vendor
@@ -114,7 +116,12 @@ function VendorModal({ vendor, onClose }) {
             </div>
             <div>
               <label className="label">Route / Area</label>
-              <input className="input-field" placeholder="e.g. North Zone, Route A" {...register('route')} />
+              <select className="input-field" {...register('route')}>
+                <option value="">— None —</option>
+                {routes.map((r) => (
+                  <option key={r.id} value={r.name}>{r.name}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div>

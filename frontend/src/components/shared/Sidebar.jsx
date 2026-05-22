@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, FileText, CheckCircle,
-  Users, ClipboardList, PlusCircle, LogOut, TrendingUp, Tag,
+  Users, ClipboardList, PlusCircle, LogOut, TrendingUp, Tag, Navigation,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
@@ -12,6 +12,7 @@ const adminLinks = [
   { to: '/admin/payments',   label: 'Payment Queue',   icon: CheckCircle },
   { to: '/admin/collectors', label: 'Collectors',      icon: Users },
   { to: '/admin/categories', label: 'Categories',      icon: Tag },
+  { to: '/admin/routes',     label: 'Routes',          icon: Navigation },
   { to: '/admin/audit',      label: 'Audit Log',       icon: ClipboardList },
 ];
 
