@@ -21,6 +21,9 @@ app.use('/api/dashboard', require('./src/routes/dashboard.routes'));
 app.use('/api/audit', require('./src/routes/audit.routes'));
 app.use('/api/categories', require('./src/routes/categories.routes'));
 app.use('/api/routes', require('./src/routes/routes.routes'));
+app.use('/api/items', require('./src/routes/items.routes'));
+app.use('/api/dalals', require('./src/routes/dalals.routes'));
+app.use('/api/soudas', require('./src/routes/soudas.routes'));
 
 // 404 handler
 app.use((req, res) => {

@@ -2,18 +2,23 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, FileText, CheckCircle,
   Users, ClipboardList, PlusCircle, LogOut, TrendingUp, Tag, Navigation,
+  ShoppingBag, BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 const adminLinks = [
-  { to: '/admin/dashboard',  label: 'Dashboard',      icon: LayoutDashboard },
-  { to: '/admin/vendors',    label: 'Vendors',         icon: Building2 },
-  { to: '/admin/bills',      label: 'Bills',           icon: FileText },
-  { to: '/admin/payments',   label: 'Payment Queue',   icon: CheckCircle },
-  { to: '/admin/collectors', label: 'Collectors',      icon: Users },
-  { to: '/admin/categories', label: 'Categories',      icon: Tag },
-  { to: '/admin/routes',     label: 'Routes',          icon: Navigation },
-  { to: '/admin/audit',      label: 'Audit Log',       icon: ClipboardList },
+  { to: '/admin/dashboard',      label: 'Dashboard',      icon: LayoutDashboard },
+  { to: '/admin/vendors',        label: 'Vendors',         icon: Building2 },
+  { to: '/admin/bills',          label: 'Bills',           icon: FileText },
+  { to: '/admin/payments',       label: 'Payment Queue',   icon: CheckCircle },
+  { to: '/admin/collectors',     label: 'Collectors',      icon: Users },
+  { to: '/admin/categories',     label: 'Categories',      icon: Tag },
+  { to: '/admin/routes',         label: 'Routes',          icon: Navigation },
+  { divider: true },
+  { to: '/admin/soudas',         label: 'Soudas',          icon: ShoppingBag },
+  { to: '/admin/souda-masters',  label: 'Souda Masters',   icon: BookOpen },
+  { divider: true },
+  { to: '/admin/audit',          label: 'Audit Log',       icon: ClipboardList },
 ];
 
 const collectorLinks = [
@@ -57,23 +62,27 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 pb-4 overflow-y-auto">
         <ul className="space-y-0.5">
-          {links.map(({ to, label, icon: Icon }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                    isActive
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`
-                }
-              >
-                <Icon className="h-4.5 w-4.5 flex-shrink-0" size={18} />
-                {label}
-              </NavLink>
-            </li>
-          ))}
+          {links.map((link, idx) =>
+            link.divider
+              ? <li key={`div-${idx}`}><div className="my-1.5 border-t border-slate-800" /></li>
+              : (
+                <li key={link.to}>
+                  <NavLink
+                    to={link.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <link.icon className="h-4.5 w-4.5 flex-shrink-0" size={18} />
+                    {link.label}
+                  </NavLink>
+                </li>
+              )
+          )}
         </ul>
       </nav>
 
