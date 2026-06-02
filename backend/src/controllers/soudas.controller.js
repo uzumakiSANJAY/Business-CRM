@@ -125,13 +125,6 @@ async function addDelivery(req, res, next) {
     const souda = await pool.query('SELECT id, qty_ordered FROM soudas WHERE id = $1', [id]);
     if (!souda.rows.length) return res.status(404).json({ message: 'Souda not found' });
 
-    const delCount = await pool.query(
-      'SELECT COUNT(*) FROM souda_deliveries WHERE souda_id = $1', [id]
-    );
-    if (parseInt(delCount.rows[0].count) >= 3) {
-      return res.status(400).json({ message: 'Maximum 3 deliveries allowed per order' });
-    }
-
     const result = await pool.query(
       `INSERT INTO souda_deliveries (souda_id, delivery_date, qty_delivered, notes, created_by)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,

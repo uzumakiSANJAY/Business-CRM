@@ -259,36 +259,32 @@ export default function SoudasPage() {
   });
 
   const exportToExcel = () => {
+    const maxDel = Math.max(...filtered.map((s) => s.deliveries.length), 0);
+
     const rows = filtered.map((s) => {
-      const d1 = s.deliveries?.[0];
-      const d2 = s.deliveries?.[1];
-      const d3 = s.deliveries?.[2];
-      return {
-        Date:           s.order_date?.slice(0, 10),
-        'Party Name':   s.vendor_name,
-        Item:           s.item_name,
+      const row = {
+        Date:            s.order_date?.slice(0, 10),
+        'Party Name':    s.vendor_name,
+        Item:            s.item_name,
         'Qty (Ordered)': parseFloat(s.qty_ordered),
-        Rate:           parseFloat(s.rate),
-        Location:       s.location || '',
-        Dalal:          s.dalal_name || '',
-        'Del Date 1':   d1 ? d1.delivery_date?.slice(0, 10) : '',
-        'Del Qty 1':    d1 ? parseFloat(d1.qty_delivered) : '',
-        'Del Date 2':   d2 ? d2.delivery_date?.slice(0, 10) : '',
-        'Del Qty 2':    d2 ? parseFloat(d2.qty_delivered) : '',
-        'Del Date 3':   d3 ? d3.delivery_date?.slice(0, 10) : '',
-        'Del Qty 3':    d3 ? parseFloat(d3.qty_delivered) : '',
-        'Total Del':    parseFloat(s.total_delivered),
-        Balance:        parseFloat(s.balance),
+        Rate:            parseFloat(s.rate),
+        Location:        s.location || '',
+        Dalal:           s.dalal_name || '',
       };
+      for (let i = 0; i < maxDel; i++) {
+        const d = s.deliveries[i];
+        row[`Del Date ${i + 1}`] = d ? d.delivery_date?.slice(0, 10) : '';
+        row[`Del Qty ${i + 1}`]  = d ? parseFloat(d.qty_delivered) : '';
+      }
+      row['Total Del'] = parseFloat(s.total_delivered);
+      row['Balance']   = parseFloat(s.balance);
+      return row;
     });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [
-      { wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 12 }, { wch: 10 },
-      { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 10 },
-      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
-      { wch: 10 }, { wch: 10 },
-    ];
+    const baseCols = [{ wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
+    const delCols  = Array.from({ length: maxDel * 2 }, () => ({ wch: 12 }));
+    ws['!cols'] = [...baseCols, ...delCols, { wch: 10 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Soudas');
     const date = new Date().toISOString().slice(0, 10);
@@ -349,7 +345,7 @@ export default function SoudasPage() {
       {/* Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: '1100px' }}>
+          <table className="w-full text-sm" style={{ minWidth: '900px' }}>
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
                 <th className="table-th">Date</th>
@@ -359,22 +355,10 @@ export default function SoudasPage() {
                 <th className="table-th text-right">Rate</th>
                 <th className="table-th">Location</th>
                 <th className="table-th">Dalal</th>
-                <th className="table-th text-center" colSpan={2} style={{ background: '#e8f5e9' }}>Del 1</th>
-                <th className="table-th text-center" colSpan={2} style={{ background: '#fff9c4' }}>Del 2</th>
-                <th className="table-th text-center" colSpan={2} style={{ background: '#fce4ec' }}>Del 3</th>
+                <th className="table-th" style={{ background: '#e8f5e9', minWidth: '220px' }}>Deliveries</th>
                 <th className="table-th text-right">Total Del</th>
                 <th className="table-th text-right">Balance</th>
                 <th className="table-th text-center">Actions</th>
-              </tr>
-              <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-400">
-                <th colSpan={7} />
-                <th className="table-th py-1" style={{ background: '#e8f5e9' }}>Date</th>
-                <th className="table-th py-1" style={{ background: '#e8f5e9' }}>Qty</th>
-                <th className="table-th py-1" style={{ background: '#fff9c4' }}>Date</th>
-                <th className="table-th py-1" style={{ background: '#fff9c4' }}>Qty</th>
-                <th className="table-th py-1" style={{ background: '#fce4ec' }}>Date</th>
-                <th className="table-th py-1" style={{ background: '#fce4ec' }}>Qty</th>
-                <th colSpan={3} />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -383,7 +367,7 @@ export default function SoudasPage() {
                 : filtered.length === 0
                   ? (
                     <tr>
-                      <td colSpan={16} className="py-16 text-center">
+                      <td colSpan={11} className="py-16 text-center">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
                             <PackageCheck className="h-6 w-6 text-slate-400" />
@@ -394,15 +378,11 @@ export default function SoudasPage() {
                     </tr>
                   )
                   : filtered.map((s) => {
-                    const d1 = s.deliveries?.[0];
-                    const d2 = s.deliveries?.[1];
-                    const d3 = s.deliveries?.[2];
                     const bal = parseFloat(s.balance);
                     const isPending = bal > 0;
-                    const canAddDel = s.deliveries.length < 3 && bal > 0;
 
                     return (
-                      <tr key={s.id} className="hover:bg-slate-50 transition-colors group">
+                      <tr key={s.id} className="hover:bg-slate-50 transition-colors group align-top">
                         <td className="table-td text-slate-500 text-xs whitespace-nowrap">{formatDate(s.order_date)}</td>
                         <td className="table-td font-semibold text-slate-800">{s.vendor_name}</td>
                         <td className="table-td text-slate-700">{s.item_name}</td>
@@ -411,52 +391,28 @@ export default function SoudasPage() {
                         <td className="table-td text-slate-500 text-xs">{s.location || '—'}</td>
                         <td className="table-td text-slate-500 text-xs">{s.dalal_name || '—'}</td>
 
-                        {/* Del 1 */}
-                        <td className="table-td text-xs text-center" style={{ background: '#f1f8f1' }}>
-                          {d1 ? (
-                            <span className="flex items-center gap-1">
-                              {formatDate(d1.delivery_date)}
-                              <button onClick={() => removeDelivery.mutate({ soudaId: s.id, deliveryId: d1.id })}
-                                className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove">
-                                <X size={10} />
-                              </button>
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="table-td text-xs text-center font-mono" style={{ background: '#f1f8f1' }}>
-                          {d1 ? d1.qty_delivered : '—'}
-                        </td>
-
-                        {/* Del 2 */}
-                        <td className="table-td text-xs text-center" style={{ background: '#fffef0' }}>
-                          {d2 ? (
-                            <span className="flex items-center gap-1">
-                              {formatDate(d2.delivery_date)}
-                              <button onClick={() => removeDelivery.mutate({ soudaId: s.id, deliveryId: d2.id })}
-                                className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove">
-                                <X size={10} />
-                              </button>
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="table-td text-xs text-center font-mono" style={{ background: '#fffef0' }}>
-                          {d2 ? d2.qty_delivered : '—'}
-                        </td>
-
-                        {/* Del 3 */}
-                        <td className="table-td text-xs text-center" style={{ background: '#fff5f7' }}>
-                          {d3 ? (
-                            <span className="flex items-center gap-1">
-                              {formatDate(d3.delivery_date)}
-                              <button onClick={() => removeDelivery.mutate({ soudaId: s.id, deliveryId: d3.id })}
-                                className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove">
-                                <X size={10} />
-                              </button>
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="table-td text-xs text-center font-mono" style={{ background: '#fff5f7' }}>
-                          {d3 ? d3.qty_delivered : '—'}
+                        {/* Deliveries — unlimited */}
+                        <td className="table-td" style={{ background: '#f1f8f1' }}>
+                          {s.deliveries.length === 0 ? (
+                            <span className="text-slate-400 text-xs">No deliveries yet</span>
+                          ) : (
+                            <div className="space-y-1">
+                              {s.deliveries.map((d, i) => (
+                                <div key={d.id} className="flex items-center gap-2 text-xs">
+                                  <span className="w-4 text-slate-400 font-mono">{i + 1}.</span>
+                                  <span className="text-slate-600 whitespace-nowrap">{formatDate(d.delivery_date)}</span>
+                                  <span className="font-mono font-semibold text-emerald-700 w-12 text-right">{d.qty_delivered}</span>
+                                  <button
+                                    onClick={() => removeDelivery.mutate({ soudaId: s.id, deliveryId: d.id })}
+                                    className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
+                                    title="Remove delivery"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </td>
 
                         <td className="table-td text-right font-mono font-semibold text-emerald-700">
@@ -469,7 +425,7 @@ export default function SoudasPage() {
                         </td>
                         <td className="table-td">
                           <div className="flex items-center justify-center gap-1">
-                            {canAddDel && (
+                            {isPending && (
                               <button
                                 onClick={() => setDelivery(s)}
                                 className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
