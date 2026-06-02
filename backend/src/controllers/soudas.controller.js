@@ -117,7 +117,7 @@ async function deleteSouda(req, res, next) {
 async function addDelivery(req, res, next) {
   try {
     const { id } = req.params;
-    const { delivery_date, qty_delivered, notes } = req.body;
+    const { delivery_date, qty_delivered, car_number, notes } = req.body;
     if (!delivery_date || !qty_delivered) {
       return res.status(400).json({ message: 'Delivery date and quantity are required' });
     }
@@ -126,9 +126,9 @@ async function addDelivery(req, res, next) {
     if (!souda.rows.length) return res.status(404).json({ message: 'Souda not found' });
 
     const result = await pool.query(
-      `INSERT INTO souda_deliveries (souda_id, delivery_date, qty_delivered, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [id, delivery_date, qty_delivered, notes || null, req.user.id]
+      `INSERT INTO souda_deliveries (souda_id, delivery_date, qty_delivered, car_number, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [id, delivery_date, qty_delivered, car_number || null, notes || null, req.user.id]
     );
     await pool.query(
       'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES ($1,$2,$3,$4,$5)',

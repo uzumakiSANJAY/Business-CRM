@@ -202,6 +202,11 @@ function DeliveryModal({ souda, onClose }) {
             {errors.qty_delivered && <p className="text-red-500 text-xs mt-1">{errors.qty_delivered.message}</p>}
           </div>
           <div>
+            <label className="label">Car Number</label>
+            <input className="input-field" placeholder="e.g. RJ 14 GA 1234" {...register('car_number')}
+              style={{ textTransform: 'uppercase' }} />
+          </div>
+          <div>
             <label className="label">Notes</label>
             <input className="input-field" placeholder="Optional..." {...register('notes')} />
           </div>
@@ -275,6 +280,7 @@ export default function SoudasPage() {
         const d = s.deliveries[i];
         row[`Del Date ${i + 1}`] = d ? d.delivery_date?.slice(0, 10) : '';
         row[`Del Qty ${i + 1}`]  = d ? parseFloat(d.qty_delivered) : '';
+        row[`Del Car ${i + 1}`]  = d?.car_number || '';
       }
       row['Total Del'] = parseFloat(s.total_delivered);
       row['Balance']   = parseFloat(s.balance);
@@ -283,7 +289,7 @@ export default function SoudasPage() {
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const baseCols = [{ wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
-    const delCols  = Array.from({ length: maxDel * 2 }, () => ({ wch: 12 }));
+    const delCols  = Array.from({ length: maxDel * 3 }, () => ({ wch: 12 }));
     ws['!cols'] = [...baseCols, ...delCols, { wch: 10 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Soudas');
@@ -399,12 +405,17 @@ export default function SoudasPage() {
                             <div className="space-y-1">
                               {s.deliveries.map((d, i) => (
                                 <div key={d.id} className="flex items-center gap-2 text-xs">
-                                  <span className="w-4 text-slate-400 font-mono">{i + 1}.</span>
+                                  <span className="w-4 text-slate-400 font-mono flex-shrink-0">{i + 1}.</span>
                                   <span className="text-slate-600 whitespace-nowrap">{formatDate(d.delivery_date)}</span>
-                                  <span className="font-mono font-semibold text-emerald-700 w-12 text-right">{d.qty_delivered}</span>
+                                  <span className="font-mono font-semibold text-emerald-700 w-12 text-right flex-shrink-0">{d.qty_delivered}</span>
+                                  {d.car_number && (
+                                    <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono text-xs uppercase tracking-wide flex-shrink-0">
+                                      {d.car_number}
+                                    </span>
+                                  )}
                                   <button
                                     onClick={() => removeDelivery.mutate({ soudaId: s.id, deliveryId: d.id })}
-                                    className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
+                                    className="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto flex-shrink-0"
                                     title="Remove delivery"
                                   >
                                     <X size={10} />

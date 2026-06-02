@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS souda_deliveries (
   souda_id        INT REFERENCES soudas(id) ON DELETE CASCADE NOT NULL,
   delivery_date   DATE NOT NULL,
   qty_delivered   NUMERIC(10,2) NOT NULL,
+  car_number      VARCHAR(50),
   notes           TEXT,
   created_by      INT REFERENCES users(id),
   created_at      TIMESTAMP DEFAULT NOW()
