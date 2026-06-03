@@ -2,22 +2,26 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { execSync } = require('child_process');
 require('dotenv').config();
+
+// Auto-run migrations + seed on startup in production
+if (process.env.NODE_ENV === 'production') {
+  try {
+    console.log('Running database migrations...');
+    execSync('node scripts/migrate.js', { stdio: 'inherit' });
+    console.log('Running seed...');
+    execSync('node scripts/seed.js', { stdio: 'inherit' });
+    console.log('Setup complete.');
+  } catch (e) {
+    console.error('Setup error (continuing):', e.message);
+  }
+}
 
 const app = express();
 
 app.use(helmet());
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  'http://localhost:5173',
-];
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(morgan('dev'));
 
