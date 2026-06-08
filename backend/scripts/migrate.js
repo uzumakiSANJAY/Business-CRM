@@ -13,6 +13,7 @@ const migrations = [
   'schema.sql',
   'migration_v2.sql',
   'migration_v3.sql',
+  'migration_v4.sql',
 ];
 
 async function run() {

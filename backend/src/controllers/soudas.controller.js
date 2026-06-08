@@ -15,19 +15,23 @@ async function getSoudas(req, res, next) {
     const result = await pool.query(
       `SELECT
          s.id, s.order_date, s.qty_ordered, s.rate, s.location, s.notes, s.created_at,
-         s.vendor_id, s.item_id, s.dalal_id,
+         s.vendor_id, s.item_id, s.dalal_id, s.item_company_id, s.item_type_id,
          v.name AS vendor_name,
          i.name AS item_name,
          d.name AS dalal_name,
+         c.name AS item_company_name,
+         t.name AS item_type_name,
          COALESCE(SUM(sd.qty_delivered), 0)::numeric AS total_delivered,
          (s.qty_ordered - COALESCE(SUM(sd.qty_delivered), 0))::numeric AS balance
        FROM soudas s
        JOIN vendors v ON s.vendor_id = v.id
        JOIN items   i ON s.item_id   = i.id
        LEFT JOIN dalals d ON s.dalal_id = d.id
+       LEFT JOIN item_companies c ON s.item_company_id = c.id
+       LEFT JOIN item_types t ON s.item_type_id = t.id
        LEFT JOIN souda_deliveries sd ON s.id = sd.souda_id
        WHERE ${where.join(' AND ')}
-       GROUP BY s.id, v.name, i.name, d.name
+       GROUP BY s.id, v.name, i.name, d.name, c.name, t.name
        ORDER BY s.order_date DESC, s.id DESC`,
       params
     );
@@ -55,15 +59,15 @@ async function getSoudas(req, res, next) {
 
 async function createSouda(req, res, next) {
   try {
-    const { order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, notes } = req.body;
+    const { order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, item_company_id, item_type_id, notes } = req.body;
     if (!vendor_id || !item_id || !qty_ordered || !rate) {
       return res.status(400).json({ message: 'Party, item, quantity and rate are required' });
     }
     const result = await pool.query(
-      `INSERT INTO soudas (order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO soudas (order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, item_company_id, item_type_id, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [order_date || new Date().toISOString().slice(0, 10), vendor_id, item_id, qty_ordered, rate,
-       location || null, dalal_id || null, notes || null, req.user.id]
+       location || null, dalal_id || null, item_company_id || null, item_type_id || null, notes || null, req.user.id]
     );
     await pool.query(
       'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES ($1,$2,$3,$4,$5)',
@@ -78,15 +82,15 @@ async function createSouda(req, res, next) {
 async function updateSouda(req, res, next) {
   try {
     const { id } = req.params;
-    const { order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, notes } = req.body;
+    const { order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, item_company_id, item_type_id, notes } = req.body;
     const existing = await pool.query('SELECT id FROM soudas WHERE id = $1', [id]);
     if (!existing.rows.length) return res.status(404).json({ message: 'Souda not found' });
 
     const result = await pool.query(
       `UPDATE soudas SET order_date=$1, vendor_id=$2, item_id=$3, qty_ordered=$4, rate=$5,
-       location=$6, dalal_id=$7, notes=$8 WHERE id=$9 RETURNING *`,
+       location=$6, dalal_id=$7, item_company_id=$8, item_type_id=$9, notes=$10 WHERE id=$11 RETURNING *`,
       [order_date, vendor_id, item_id, qty_ordered, rate,
-       location || null, dalal_id || null, notes || null, id]
+       location || null, dalal_id || null, item_company_id || null, item_type_id || null, notes || null, id]
     );
     await pool.query(
       'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) VALUES ($1,$2,$3,$4,$5)',

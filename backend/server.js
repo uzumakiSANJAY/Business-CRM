@@ -36,6 +36,8 @@ app.use('/api/audit', require('./src/routes/audit.routes'));
 app.use('/api/categories', require('./src/routes/categories.routes'));
 app.use('/api/routes', require('./src/routes/routes.routes'));
 app.use('/api/items', require('./src/routes/items.routes'));
+app.use('/api/item-companies', require('./src/routes/item-companies.routes'));
+app.use('/api/item-types', require('./src/routes/item-types.routes'));
 app.use('/api/dalals', require('./src/routes/dalals.routes'));
 app.use('/api/soudas', require('./src/routes/soudas.routes'));
 

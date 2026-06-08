@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Plus, Edit2, Trash2, Truck, X, PackageCheck, Search, Download } from 'lucide-react';
@@ -10,6 +10,8 @@ import { useToast } from '../../components/shared/Toast.jsx';
 import { getSoudas, createSouda, updateSouda, deleteSouda, addDelivery, deleteDelivery } from '../../api/soudas.api.js';
 import { getVendors } from '../../api/vendors.api.js';
 import { getItems } from '../../api/items.api.js';
+import { getItemCompanies } from '../../api/itemCompanies.api.js';
+import { getItemTypes } from '../../api/itemTypes.api.js';
 import { getDalals } from '../../api/dalals.api.js';
 import { getRoutes } from '../../api/routes.api.js';
 import { formatDate } from '../../utils/date.js';
@@ -20,12 +22,14 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
   const toast = useToast();
   const isEdit = !!souda?.id;
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm({
     defaultValues: souda
       ? {
           order_date: souda.order_date?.slice(0, 10),
           vendor_id: souda.vendor_id,
           item_id: souda.item_id,
+          item_company_id: souda.item_company_id || '',
+          item_type_id: souda.item_type_id || '',
           qty_ordered: souda.qty_ordered,
           rate: souda.rate,
           location: souda.location || '',
@@ -35,12 +39,43 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
       : { order_date: new Date().toISOString().slice(0, 10) },
   });
 
+  // ── Cascading masters: Item -> Company -> Package/Type ──
+  const itemId = watch('item_id');
+  const companyId = watch('item_company_id');
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['item-companies', itemId],
+    queryFn: () => getItemCompanies(itemId),
+    enabled: !!itemId,
+  });
+  const { data: types = [] } = useQuery({
+    queryKey: ['item-types', companyId],
+    queryFn: () => getItemTypes(companyId),
+    enabled: !!companyId,
+  });
+
+  // Reset dependent selects when their parent changes (skip the initial mount/edit-prefill)
+  const itemTouched = useRef(false);
+  useEffect(() => {
+    if (!itemTouched.current) { itemTouched.current = true; return; }
+    setValue('item_company_id', '');
+    setValue('item_type_id', '');
+  }, [itemId, setValue]);
+
+  const companyTouched = useRef(false);
+  useEffect(() => {
+    if (!companyTouched.current) { companyTouched.current = true; return; }
+    setValue('item_type_id', '');
+  }, [companyId, setValue]);
+
   const mutation = useMutation({
     mutationFn: (data) => {
       const payload = {
         ...data,
         vendor_id: parseInt(data.vendor_id),
         item_id: parseInt(data.item_id),
+        item_company_id: data.item_company_id ? parseInt(data.item_company_id) : null,
+        item_type_id: data.item_type_id ? parseInt(data.item_type_id) : null,
         dalal_id: data.dalal_id ? parseInt(data.dalal_id) : null,
         qty_ordered: parseFloat(data.qty_ordered),
         rate: parseFloat(data.rate),
@@ -97,6 +132,23 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
               <select className="input-field" {...register('location')}>
                 <option value="">Select location...</option>
                 {routes.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Company</label>
+              <select className="input-field" disabled={!itemId} {...register('item_company_id')}>
+                <option value="">{itemId ? 'Select company...' : 'Select item first'}</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Package / Type</label>
+              <select className="input-field" disabled={!companyId} {...register('item_type_id')}>
+                <option value="">{companyId ? 'Select type...' : 'Select company first'}</option>
+                {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           </div>

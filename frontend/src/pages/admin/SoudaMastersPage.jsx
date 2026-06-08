@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Edit2, Trash2, Package, Users2, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Users2, X, ChevronRight } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
 import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
 import { getItems, createItem, updateItem, deleteItem } from '../../api/items.api.js';
+import { getItemCompanies, createItemCompany, updateItemCompany, deleteItemCompany } from '../../api/itemCompanies.api.js';
+import { getItemTypes, createItemType, updateItemType, deleteItemType } from '../../api/itemTypes.api.js';
 import { getDalals, createDalal, updateDalal, deleteDalal } from '../../api/dalals.api.js';
 
 // ─── Generic name-only modal ────────────────────────────────────────────────
@@ -46,8 +48,78 @@ function NameModal({ title, existing, onSave, onClose }) {
   );
 }
 
-// ─── Items Tab ───────────────────────────────────────────────────────────────
-function ItemsTab() {
+// ─── Breadcrumb trail ────────────────────────────────────────────────────────
+function Crumbs({ trail }) {
+  return (
+    <div className="flex items-center gap-1.5 text-sm mb-4">
+      {trail.map((c, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-300" />}
+          {c.onClick
+            ? <button onClick={c.onClick} className="text-indigo-600 hover:underline font-medium">{c.label}</button>
+            : <span className="font-semibold text-slate-800">{c.label}</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ─── Generic master list table (name + actions, optional drill-in) ──────────
+function MasterTable({ rows, isLoading, dotColor, emptyMessage, onRowClick, onEdit, onDelete }) {
+  return (
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="table-th">Name</th>
+              <th className="table-th text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={2} />)
+              : rows.length === 0
+                ? (
+                  <tr>
+                    <td colSpan={2} className="py-12 text-center text-slate-400 text-sm">{emptyMessage}</td>
+                  </tr>
+                )
+                : rows.map((row) => (
+                  <tr key={row.id}
+                    className={`hover:bg-slate-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRowClick?.(row)}>
+                    <td className="table-td">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${dotColor} flex-shrink-0`} />
+                        <span className="font-medium text-slate-800">{row.name}</span>
+                      </div>
+                    </td>
+                    <td className="table-td">
+                      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => onEdit(row)}
+                          className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors">
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => onDelete(row)}
+                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        {onRowClick && <ChevronRight className="h-4 w-4 text-slate-300 ml-1" />}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Level 1: Items list ─────────────────────────────────────────────────────
+function ItemsListView({ onOpenItem }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [modal, setModal] = useState(null);
@@ -70,66 +142,22 @@ function ItemsTab() {
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-500">{items.length} items configured</p>
+        <p className="text-sm text-slate-500">{items.length} items configured · click an item to manage its companies</p>
         <button onClick={() => setModal({})} className="btn-primary">
           <Plus className="h-4 w-4" /> Add Item
         </button>
       </div>
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="table-th">Item Name</th>
-                <th className="table-th text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={2} />)
-                : items.length === 0
-                  ? (
-                    <tr>
-                      <td colSpan={2} className="py-12 text-center text-slate-400 text-sm">
-                        No items yet. Add products like "HBC RBD OIL 15KG".
-                      </td>
-                    </tr>
-                  )
-                  : items.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="table-td">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
-                          <span className="font-medium text-slate-800">{item.name}</span>
-                        </div>
-                      </td>
-                      <td className="table-td">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => setModal(item)}
-                            className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors">
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => setDelete(item)}
-                            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+      <MasterTable
+        rows={items}
+        isLoading={isLoading}
+        dotColor="bg-orange-400"
+        emptyMessage='No items yet. Add products like "HBC RBD OIL 15KG".'
+        onRowClick={onOpenItem}
+        onEdit={setModal}
+        onDelete={setDelete}
+      />
       {modal !== null && (
-        <NameModal
-          title="Item"
-          existing={modal}
-          onSave={(d) => mutation.mutate(d)}
-          onClose={() => setModal(null)}
-        />
+        <NameModal title="Item" existing={modal} onSave={(d) => mutation.mutate(d)} onClose={() => setModal(null)} />
       )}
       <ConfirmModal
         isOpen={!!deleteTarget}
@@ -138,6 +166,145 @@ function ItemsTab() {
         onConfirm={() => deleteMutation.mutate(deleteTarget?.id)}
         onCancel={() => setDelete(null)}
       />
+    </>
+  );
+}
+
+// ─── Level 2: Companies registered under an item ────────────────────────────
+function CompaniesView({ item, onOpenCompany }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [modal, setModal] = useState(null);
+  const [deleteTarget, setDelete] = useState(null);
+
+  const { data: companies = [], isLoading } = useQuery({
+    queryKey: ['item-companies', item.id],
+    queryFn: () => getItemCompanies(item.id),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data) => modal?.id ? updateItemCompany(modal.id, data) : createItemCompany({ ...data, item_id: item.id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['item-companies', item.id] });
+      toast(modal?.id ? 'Company updated' : 'Company added', 'success');
+      setModal(null);
+    },
+    onError: (e) => toast(e.response?.data?.message || 'Error', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteItemCompany,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['item-companies', item.id] }); toast('Company removed', 'success'); setDelete(null); },
+    onError: () => toast('Error removing company', 'error'),
+  });
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">{companies.length} companies registered for "{item.name}" · click one to manage its package types</p>
+        <button onClick={() => setModal({})} className="btn-primary">
+          <Plus className="h-4 w-4" /> Add Company
+        </button>
+      </div>
+      <MasterTable
+        rows={companies}
+        isLoading={isLoading}
+        dotColor="bg-blue-400"
+        emptyMessage={`No companies yet. Register companies that supply "${item.name}".`}
+        onRowClick={onOpenCompany}
+        onEdit={setModal}
+        onDelete={setDelete}
+      />
+      {modal !== null && (
+        <NameModal title="Company" existing={modal} onSave={(d) => mutation.mutate(d)} onClose={() => setModal(null)} />
+      )}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        title="Remove Company"
+        message={`Remove "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate(deleteTarget?.id)}
+        onCancel={() => setDelete(null)}
+      />
+    </>
+  );
+}
+
+// ─── Level 3: Package/type names registered under a company ─────────────────
+function TypesView({ company }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [modal, setModal] = useState(null);
+  const [deleteTarget, setDelete] = useState(null);
+
+  const { data: types = [], isLoading } = useQuery({
+    queryKey: ['item-types', company.id],
+    queryFn: () => getItemTypes(company.id),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data) => modal?.id ? updateItemType(modal.id, data) : createItemType({ ...data, item_company_id: company.id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['item-types', company.id] });
+      toast(modal?.id ? 'Type updated' : 'Type added', 'success');
+      setModal(null);
+    },
+    onError: (e) => toast(e.response?.data?.message || 'Error', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteItemType,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['item-types', company.id] }); toast('Type removed', 'success'); setDelete(null); },
+    onError: () => toast('Error removing type', 'error'),
+  });
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">{types.length} package/types registered for "{company.name}"</p>
+        <button onClick={() => setModal({})} className="btn-primary">
+          <Plus className="h-4 w-4" /> Add Type
+        </button>
+      </div>
+      <MasterTable
+        rows={types}
+        isLoading={isLoading}
+        dotColor="bg-emerald-400"
+        emptyMessage={`No package types yet. Add names like "5kg Bag" for "${company.name}".`}
+        onEdit={setModal}
+        onDelete={setDelete}
+      />
+      {modal !== null && (
+        <NameModal title="Item Type" existing={modal} onSave={(d) => mutation.mutate(d)} onClose={() => setModal(null)} />
+      )}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        title="Remove Type"
+        message={`Remove "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate(deleteTarget?.id)}
+        onCancel={() => setDelete(null)}
+      />
+    </>
+  );
+}
+
+// ─── Items Tab — drills Items → Companies → Types ────────────────────────────
+function ItemsTab() {
+  const [item, setItem] = useState(null);
+  const [company, setCompany] = useState(null);
+
+  const trail = [{ label: 'Items', onClick: (item || company) ? () => { setItem(null); setCompany(null); } : null }];
+  if (item) trail.push({ label: item.name, onClick: company ? () => setCompany(null) : null });
+  if (company) trail.push({ label: company.name, onClick: null });
+
+  return (
+    <>
+      {(item || company) && <Crumbs trail={trail} />}
+      {company
+        ? <TypesView company={company} />
+        : item
+          ? <CompaniesView item={item} onOpenCompany={setCompany} />
+          : <ItemsListView onOpenItem={setItem} />
+      }
     </>
   );
 }
