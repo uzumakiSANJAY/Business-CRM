@@ -13,6 +13,7 @@ import { getItems } from '../../api/items.api.js';
 import { getItemCompanies } from '../../api/itemCompanies.api.js';
 import { getItemTypes } from '../../api/itemTypes.api.js';
 import { getDalals } from '../../api/dalals.api.js';
+import { getVehicles } from '../../api/vehicles.api.js';
 import { getRoutes } from '../../api/routes.api.js';
 import { formatDate } from '../../utils/date.js';
 
@@ -203,6 +204,8 @@ function DeliveryModal({ souda, onClose }) {
   const qc = useQueryClient();
   const toast = useToast();
 
+  const { data: vehicles = [] } = useQuery({ queryKey: ['vehicles'], queryFn: getVehicles });
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     defaultValues: { delivery_date: new Date().toISOString().slice(0, 10) },
   });
@@ -254,9 +257,11 @@ function DeliveryModal({ souda, onClose }) {
             {errors.qty_delivered && <p className="text-red-500 text-xs mt-1">{errors.qty_delivered.message}</p>}
           </div>
           <div>
-            <label className="label">Car Number</label>
-            <input className="input-field" placeholder="e.g. RJ 14 GA 1234" {...register('car_number')}
-              style={{ textTransform: 'uppercase' }} />
+            <label className="label">Vehicle / Car Number</label>
+            <select className="input-field" {...register('car_number')}>
+              <option value="">Select vehicle...</option>
+              {vehicles.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
+            </select>
           </div>
           <div>
             <label className="label">Notes</label>

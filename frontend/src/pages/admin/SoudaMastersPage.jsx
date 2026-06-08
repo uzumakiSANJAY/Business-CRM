@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Edit2, Trash2, Package, Users2, X, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Users2, Truck, X, ChevronRight } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
 import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
@@ -10,6 +10,7 @@ import { getItems, createItem, updateItem, deleteItem } from '../../api/items.ap
 import { getItemCompanies, createItemCompany, updateItemCompany, deleteItemCompany } from '../../api/itemCompanies.api.js';
 import { getItemTypes, createItemType, updateItemType, deleteItemType } from '../../api/itemTypes.api.js';
 import { getDalals, createDalal, updateDalal, deleteDalal } from '../../api/dalals.api.js';
+import { getVehicles, createVehicle, updateVehicle, deleteVehicle } from '../../api/vehicles.api.js';
 
 // ─── Generic name-only modal ────────────────────────────────────────────────
 function NameModal({ title, existing, onSave, onClose }) {
@@ -405,6 +406,57 @@ function DalalsTab() {
   );
 }
 
+// ─── Vehicles Tab ────────────────────────────────────────────────────────────
+function VehiclesTab() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [modal, setModal] = useState(null);
+  const [deleteTarget, setDelete] = useState(null);
+
+  const { data: vehicles = [], isLoading } = useQuery({ queryKey: ['vehicles'], queryFn: getVehicles });
+
+  const mutation = useMutation({
+    mutationFn: (data) => modal?.id ? updateVehicle(modal.id, data) : createVehicle(data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); toast(modal?.id ? 'Vehicle updated' : 'Vehicle added', 'success'); setModal(null); },
+    onError: (e) => toast(e.response?.data?.message || 'Error', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteVehicle,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vehicles'] }); toast('Vehicle removed', 'success'); setDelete(null); },
+    onError: () => toast('Error removing vehicle', 'error'),
+  });
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">{vehicles.length} vehicles configured</p>
+        <button onClick={() => setModal({})} className="btn-primary">
+          <Plus className="h-4 w-4" /> Add Vehicle
+        </button>
+      </div>
+      <MasterTable
+        rows={vehicles}
+        isLoading={isLoading}
+        dotColor="bg-amber-400"
+        emptyMessage='No vehicles yet. Add numbers like "RJ 14 GA 1234".'
+        onEdit={setModal}
+        onDelete={setDelete}
+      />
+      {modal !== null && (
+        <NameModal title="Vehicle" existing={modal} onSave={(d) => mutation.mutate(d)} onClose={() => setModal(null)} />
+      )}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        title="Remove Vehicle"
+        message={`Remove "${deleteTarget?.name}"?`}
+        onConfirm={() => deleteMutation.mutate(deleteTarget?.id)}
+        onCancel={() => setDelete(null)}
+      />
+    </>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SoudaMastersPage() {
   const [tab, setTab] = useState('items');
@@ -432,9 +484,19 @@ export default function SoudaMastersPage() {
         >
           <Users2 className="h-4 w-4" /> Dalals
         </button>
+        <button
+          onClick={() => setTab('vehicles')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            tab === 'vehicles'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Truck className="h-4 w-4" /> Vehicles
+        </button>
       </div>
 
-      {tab === 'items' ? <ItemsTab /> : <DalalsTab />}
+      {tab === 'items' ? <ItemsTab /> : tab === 'dalals' ? <DalalsTab /> : <VehiclesTab />}
     </Layout>
   );
 }

@@ -39,6 +39,7 @@ app.use('/api/items', require('./src/routes/items.routes'));
 app.use('/api/item-companies', require('./src/routes/item-companies.routes'));
 app.use('/api/item-types', require('./src/routes/item-types.routes'));
 app.use('/api/dalals', require('./src/routes/dalals.routes'));
+app.use('/api/vehicles', require('./src/routes/vehicles.routes'));
 app.use('/api/soudas', require('./src/routes/soudas.routes'));
 
 // 404 handler
