@@ -20,6 +20,7 @@ const PAYMENT_MODES = [
 export default function CollectPage() {
   const qc = useQueryClient();
   const toast = useToast();
+  const [selectedRoute, setSelectedRoute] = useState('');
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [selectedBill, setSelectedBill] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -27,6 +28,10 @@ export default function CollectPage() {
 
   const { data: vendors = [] } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
   const activeVendors = vendors.filter((v) => v.active_bills?.length > 0);
+  const routes = [...new Set(activeVendors.map((v) => v.route).filter(Boolean))].sort();
+  const vendorsForRoute = selectedRoute
+    ? activeVendors.filter((v) => v.route === selectedRoute)
+    : activeVendors;
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     defaultValues: { collection_date: today, payment_mode: 'CASH' },
@@ -37,6 +42,7 @@ export default function CollectPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendors'] });
       reset({ collection_date: today, payment_mode: 'CASH' });
+      setSelectedRoute('');
       setSelectedVendor(null);
       setSelectedBill(null);
       setSuccess(true);
@@ -56,9 +62,15 @@ export default function CollectPage() {
     });
   };
 
+  const handleRouteChange = (e) => {
+    setSelectedRoute(e.target.value);
+    setSelectedVendor(null);
+    setSelectedBill(null);
+  };
+
   const handleVendorChange = (e) => {
     const id = parseInt(e.target.value);
-    const vendor = activeVendors.find((v) => v.id === id) || null;
+    const vendor = vendorsForRoute.find((v) => v.id === id) || null;
     setSelectedVendor(vendor);
     setSelectedBill(vendor?.active_bills?.length === 1 ? vendor.active_bills[0] : null);
   };
@@ -99,14 +111,31 @@ export default function CollectPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Route filter */}
+            {routes.length > 0 && (
+              <div>
+                <label className="label">Select Route *</label>
+                <select className="input-field" value={selectedRoute} onChange={handleRouteChange}>
+                  <option value="">All Routes</option>
+                  {routes.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Vendor select */}
             <div>
               <label className="label">Select Vendor *</label>
-              <select className="input-field" onChange={handleVendorChange} defaultValue="">
+              <select
+                className="input-field"
+                onChange={handleVendorChange}
+                value={selectedVendor?.id || ''}
+              >
                 <option value="" disabled>Choose a vendor with active bill...</option>
-                {activeVendors.map((v) => (
+                {vendorsForRoute.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name}{v.route ? ` — ${v.route}` : ''}
+                    {v.name}{!selectedRoute && v.route ? ` — ${v.route}` : ''}
                   </option>
                 ))}
               </select>
@@ -141,7 +170,7 @@ export default function CollectPage() {
                   <Receipt className="h-3.5 w-3.5" />
                   Paying Against Bill #{selectedBill.id}
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div>
                     <p className="text-xs text-indigo-500 font-medium">Bill Amount</p>
                     <p className="text-sm font-bold text-indigo-800">{formatINR(selectedBill.amount)}</p>
@@ -153,6 +182,12 @@ export default function CollectPage() {
                   <div>
                     <p className="text-xs text-indigo-500 font-medium">Bill Date</p>
                     <p className="text-sm font-medium text-indigo-700">{formatDate(selectedBill.generated_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-indigo-500 font-medium">Bill Type</p>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${selectedBill.bill_type === 'CHEQUE' ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {selectedBill.bill_type === 'CHEQUE' ? 'Cheque' : 'Cash'}
+                    </span>
                   </div>
                 </div>
                 {selectedVendor.route && (

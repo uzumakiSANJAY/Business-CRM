@@ -13,6 +13,7 @@ async function getBills(req, res, next) {
         b.vendor_id,
         v.name              AS vendor_name,
         b.amount,
+        b.bill_type,
         b.generated_date,
         b.status,
         b.created_at,
@@ -36,6 +37,7 @@ async function getBills(req, res, next) {
         vendor_id: row.vendor_id,
         vendor_name: row.vendor_name,
         amount: parseFloat(row.amount),
+        bill_type: row.bill_type,
         generated_date: row.generated_date,
         status: row.status,
         created_at: row.created_at,
@@ -118,7 +120,7 @@ async function getBillById(req, res, next) {
  */
 async function createBill(req, res, next) {
   try {
-    const { vendor_id, amount, generated_date } = req.body;
+    const { vendor_id, amount, generated_date, bill_type } = req.body;
 
     // Verify vendor exists and is active
     const vendorCheck = await pool.query(
@@ -129,11 +131,12 @@ async function createBill(req, res, next) {
       return res.status(404).json({ message: 'Vendor not found or inactive' });
     }
 
+    const type = (bill_type === 'CHEQUE') ? 'CHEQUE' : 'CASH';
     const result = await pool.query(
-      `INSERT INTO bills (vendor_id, amount, generated_date, generated_by)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO bills (vendor_id, amount, generated_date, generated_by, bill_type)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [vendor_id, amount, generated_date, req.user.id]
+      [vendor_id, amount, generated_date, req.user.id, type]
     );
 
     const bill = result.rows[0];

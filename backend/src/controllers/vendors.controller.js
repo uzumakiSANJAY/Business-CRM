@@ -24,6 +24,7 @@ async function getVendors(req, res, next) {
             json_build_object(
               'id',                  b.id,
               'amount',              b.amount::float8,
+              'bill_type',           b.bill_type,
               'generated_date',      b.generated_date,
               'confirmed_collected', COALESCE(
                 (SELECT SUM(c.amount)::float8
@@ -50,6 +51,7 @@ async function getVendors(req, res, next) {
         return {
           id: b.id,
           amount: parseFloat(b.amount),
+          bill_type: b.bill_type || 'CASH',
           generated_date: b.generated_date,
           status: 'ACTIVE',
           outstanding,

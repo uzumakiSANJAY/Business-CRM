@@ -146,7 +146,7 @@ function BillModal({ vendor, onClose }) {
   const today = new Date().toISOString().split('T')[0];
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: { generated_date: today },
+    defaultValues: { generated_date: today, bill_type: 'CASH' },
   });
 
   const mutation = useMutation({
@@ -185,6 +185,19 @@ function BillModal({ vendor, onClose }) {
           <div>
             <label className="label">Bill Date *</label>
             <input type="date" className="input-field" {...register('generated_date', { required: 'Required' })} />
+          </div>
+          <div>
+            <label className="label">Bill Type *</label>
+            <div className="flex gap-3">
+              {[{ value: 'CASH', label: 'Cash' }, { value: 'CHEQUE', label: 'Cheque' }].map(({ value, label }) => (
+                <label key={value} className="cursor-pointer flex-1">
+                  <input type="radio" value={value} className="sr-only peer" {...register('bill_type')} />
+                  <span className="block text-center px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700 transition-all hover:border-indigo-300">
+                    {label}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
           <div className="flex gap-3 justify-end pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>

@@ -58,6 +58,7 @@ export default function CollectorVendorsPage() {
                 <th className="table-th">Vendor</th>
                 <th className="table-th">Route</th>
                 <th className="table-th">Contact</th>
+                <th className="table-th">Bill Type</th>
                 <th className="table-th text-right">Bill Amount</th>
                 <th className="table-th text-right">Outstanding</th>
                 <th className="table-th">Bill Date</th>
@@ -67,11 +68,11 @@ export default function CollectorVendorsPage() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {isLoading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={9} />)
                 : filtered.length === 0
                 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={9} className="py-16 text-center">
                       <p className="text-slate-400 text-sm">No active vendor bills</p>
                     </td>
                   </tr>
@@ -109,6 +110,12 @@ export default function CollectorVendorsPage() {
                         )}
                       </td>
                       <td className="table-td text-slate-500">{v.contact_person || '—'}</td>
+                      <td className="table-td">
+                        {v.active_bills?.[0]?.bill_type === 'CHEQUE'
+                          ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">Cheque</span>
+                          : <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Cash</span>
+                        }
+                      </td>
                       <td className="table-td text-right font-semibold">
                         {formatINR(v.active_bills?.[0]?.amount)}
                         {v.active_bills?.length > 1 && (
