@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Edit2, Trash2, Truck, X, PackageCheck, Search, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Truck, X, PackageCheck, Search, Download, Filter, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Layout from '../../components/shared/Layout.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
@@ -286,18 +286,24 @@ export default function SoudasPage() {
   const qc = useQueryClient();
   const toast = useToast();
 
-  const [modal, setModal]           = useState(null); // null | 'new' | souda-object
-  const [deliveryModal, setDelivery] = useState(null);
-  const [deleteTarget, setDelete]   = useState(null);
-  const [search, setSearch]           = useState('');
-  const [filterDalal, setFilterDalal] = useState('');
-  const [filterRoute, setFilterRoute] = useState('');
+  const [modal, setModal]               = useState(null);
+  const [deliveryModal, setDelivery]    = useState(null);
+  const [deleteTarget, setDelete]       = useState(null);
+  const [search, setSearch]             = useState('');
+  const [filterDalal, setFilterDalal]   = useState('');
+  const [filterRoute, setFilterRoute]   = useState('');
+  const [filterStatus, setFilterStatus] = useState('');   // '' | 'pending' | 'delivered'
+  const [filterCar, setFilterCar]       = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo]     = useState('');
+  const [showFilters, setShowFilters]   = useState(false);
 
   const { data: soudas = [], isLoading } = useQuery({ queryKey: ['soudas'], queryFn: () => getSoudas() });
   const { data: vendors = [] } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
   const { data: items = [] }   = useQuery({ queryKey: ['items'],   queryFn: getItems });
   const { data: dalals = [] }  = useQuery({ queryKey: ['dalals'],  queryFn: getDalals });
   const { data: routes = [] }  = useQuery({ queryKey: ['routes'],  queryFn: getRoutes });
+  const { data: vehicles = [] } = useQuery({ queryKey: ['vehicles'], queryFn: getVehicles });
 
   const deleteMutation = useMutation({
     mutationFn: deleteSouda,
@@ -315,10 +321,26 @@ export default function SoudasPage() {
     const matchSearch = !search || s.vendor_name?.toLowerCase().includes(search.toLowerCase())
       || s.item_name?.toLowerCase().includes(search.toLowerCase())
       || s.location?.toLowerCase().includes(search.toLowerCase());
-    const matchDalal = !filterDalal || String(s.dalal_id) === filterDalal;
-    const matchRoute = !filterRoute || s.location === filterRoute;
-    return matchSearch && matchDalal && matchRoute;
+    const matchDalal  = !filterDalal  || String(s.dalal_id) === filterDalal;
+    const matchRoute  = !filterRoute  || s.location === filterRoute;
+    const bal = parseFloat(s.balance || 0);
+    const matchStatus = !filterStatus
+      || (filterStatus === 'pending'   && bal > 0)
+      || (filterStatus === 'delivered' && bal <= 0);
+    const matchCar = !filterCar || s.deliveries?.some((d) => d.car_number === filterCar);
+    const matchDate = (!filterDateFrom && !filterDateTo) || s.deliveries?.some((d) => {
+      const dd = d.delivery_date?.slice(0, 10);
+      return (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
+    });
+    return matchSearch && matchDalal && matchRoute && matchStatus && matchCar && matchDate;
   });
+
+  const activeFilterCount = [filterRoute, filterDalal, filterStatus, filterCar, filterDateFrom, filterDateTo].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilterRoute(''); setFilterDalal(''); setFilterStatus('');
+    setFilterCar(''); setFilterDateFrom(''); setFilterDateTo('');
+  };
 
   const exportToExcel = () => {
     const maxDel = Math.max(...filtered.map((s) => s.deliveries.length), 0);
@@ -378,8 +400,8 @@ export default function SoudasPage() {
         </div>
       </div>
 
-      {/* Filters + Add button */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      {/* Top bar: Search + Filter toggle + Export + New Order */}
+      <div className="flex flex-wrap items-center gap-3 mb-3">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
@@ -389,14 +411,17 @@ export default function SoudasPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select className="input-field w-44" value={filterRoute} onChange={(e) => setFilterRoute(e.target.value)}>
-          <option value="">All Routes</option>
-          {routes.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
-        </select>
-        <select className="input-field w-44" value={filterDalal} onChange={(e) => setFilterDalal(e.target.value)}>
-          <option value="">All Dalals</option>
-          {dalals.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
+        <button
+          onClick={() => setShowFilters((p) => !p)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${showFilters || activeFilterCount > 0 ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
+        >
+          <Filter className="h-4 w-4" />
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{activeFilterCount}</span>
+          )}
+          <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+        </button>
         <button onClick={exportToExcel} className="btn-secondary whitespace-nowrap" title="Export to Excel">
           <Download className="h-4 w-4" /> Export
         </button>
@@ -404,6 +429,65 @@ export default function SoudasPage() {
           <Plus className="h-4 w-4" /> New Order
         </button>
       </div>
+
+      {/* Collapsible filter panel */}
+      {showFilters && (
+        <div className="card p-4 mb-4 animate-slide-in">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Status */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Status</label>
+              <select className="input-field" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="delivered">Delivered</option>
+              </select>
+            </div>
+            {/* Route */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Route</label>
+              <select className="input-field" value={filterRoute} onChange={(e) => setFilterRoute(e.target.value)}>
+                <option value="">All Routes</option>
+                {routes.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+              </select>
+            </div>
+            {/* Dalal */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Dalal</label>
+              <select className="input-field" value={filterDalal} onChange={(e) => setFilterDalal(e.target.value)}>
+                <option value="">All Dalals</option>
+                {dalals.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            {/* Vehicle */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Vehicle</label>
+              <select className="input-field" value={filterCar} onChange={(e) => setFilterCar(e.target.value)}>
+                <option value="">All Vehicles</option>
+                {vehicles.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
+              </select>
+            </div>
+            {/* Date From */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Delivery Date From</label>
+              <input type="date" className="input-field" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+            </div>
+            {/* Date To */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Delivery Date To</label>
+              <input type="date" className="input-field" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+            </div>
+          </div>
+          {activeFilterCount > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-xs text-slate-500">{filtered.length} of {soudas.length} orders shown</p>
+              <button onClick={clearFilters} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                <X className="h-3 w-3" /> Clear all filters
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Table */}
       <div className="card overflow-hidden">
@@ -456,11 +540,17 @@ export default function SoudasPage() {
 
                         {/* Deliveries — unlimited */}
                         <td className="table-td" style={{ background: '#f1f8f1' }}>
-                          {s.deliveries.length === 0 ? (
-                            <span className="text-slate-400 text-xs">No deliveries yet</span>
+                          {(() => {
+                            const visibleDeliveries = s.deliveries.filter((d) => {
+                              const dd = d.delivery_date?.slice(0, 10);
+                              return (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
+                            });
+                            const deliveriesToShow = (filterDateFrom || filterDateTo) ? visibleDeliveries : s.deliveries;
+                            return deliveriesToShow.length === 0 ? (
+                            <span className="text-slate-400 text-xs">{s.deliveries.length === 0 ? 'No deliveries yet' : 'No deliveries in range'}</span>
                           ) : (
                             <div className="space-y-1">
-                              {s.deliveries.map((d, i) => (
+                              {deliveriesToShow.map((d, i) => (
                                 <div key={d.id} className="flex items-center gap-2 text-xs">
                                   <span className="w-4 text-slate-400 font-mono flex-shrink-0">{i + 1}.</span>
                                   <span className="text-slate-600 whitespace-nowrap">{formatDate(d.delivery_date)}</span>
@@ -480,7 +570,8 @@ export default function SoudasPage() {
                                 </div>
                               ))}
                             </div>
-                          )}
+                          );
+                          })()}
                         </td>
 
                         <td className="table-td text-right font-mono font-semibold text-emerald-700">
