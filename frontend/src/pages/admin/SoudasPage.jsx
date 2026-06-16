@@ -207,7 +207,7 @@ function DeliveryModal({ souda, onClose }) {
   const { data: vehicles = [] } = useQuery({ queryKey: ['vehicles'], queryFn: getVehicles });
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: { delivery_date: new Date().toISOString().slice(0, 10) },
+    defaultValues: { delivery_date: new Date().toISOString().slice(0, 10), trip_number: 1 },
   });
 
   const mutation = useMutation({
@@ -256,6 +256,20 @@ function DeliveryModal({ souda, onClose }) {
               })} />
             {errors.qty_delivered && <p className="text-red-500 text-xs mt-1">{errors.qty_delivered.message}</p>}
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Trip #</label>
+              <input
+                type="number" min="1" step="1"
+                className="input-field"
+                {...register('trip_number', { min: 1 })}
+              />
+            </div>
+            <div>
+              <label className="label">Trip Time</label>
+              <input type="time" className="input-field" {...register('trip_time')} />
+            </div>
+          </div>
           <div>
             <label className="label">Vehicle / Car Number</label>
             <select className="input-field" {...register('car_number')}>
@@ -294,6 +308,7 @@ export default function SoudasPage() {
   const [filterRoute, setFilterRoute]   = useState('');
   const [filterStatus, setFilterStatus] = useState('');   // '' | 'pending' | 'delivered'
   const [filterCar, setFilterCar]       = useState('');
+  const [filterTrip, setFilterTrip]     = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo]     = useState('');
   const [showFilters, setShowFilters]   = useState(false);
@@ -317,6 +332,10 @@ export default function SoudasPage() {
     onError: () => toast('Error removing delivery', 'error'),
   });
 
+  const tripOptions = [...new Set(
+    soudas.flatMap((s) => s.deliveries.map((d) => d.trip_number || 1))
+  )].sort((a, b) => a - b);
+
   const filtered = soudas.filter((s) => {
     const matchSearch = !search || s.vendor_name?.toLowerCase().includes(search.toLowerCase())
       || s.item_name?.toLowerCase().includes(search.toLowerCase())
@@ -327,25 +346,37 @@ export default function SoudasPage() {
     const matchStatus = !filterStatus
       || (filterStatus === 'pending'   && bal > 0)
       || (filterStatus === 'delivered' && bal <= 0);
-    const matchCar = !filterCar || s.deliveries?.some((d) => d.car_number === filterCar);
+    const matchCar  = !filterCar  || s.deliveries?.some((d) => d.car_number === filterCar);
+    const matchTrip = !filterTrip || s.deliveries?.some((d) => (d.trip_number || 1) === parseInt(filterTrip));
     const matchDate = (!filterDateFrom && !filterDateTo) || s.deliveries?.some((d) => {
       const dd = d.delivery_date?.slice(0, 10);
       return (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
     });
-    return matchSearch && matchDalal && matchRoute && matchStatus && matchCar && matchDate;
+    return matchSearch && matchDalal && matchRoute && matchStatus && matchCar && matchTrip && matchDate;
   });
 
-  const activeFilterCount = [filterRoute, filterDalal, filterStatus, filterCar, filterDateFrom, filterDateTo].filter(Boolean).length;
+  const activeFilterCount = [filterRoute, filterDalal, filterStatus, filterCar, filterTrip, filterDateFrom, filterDateTo].filter(Boolean).length;
 
   const clearFilters = () => {
     setFilterRoute(''); setFilterDalal(''); setFilterStatus('');
-    setFilterCar(''); setFilterDateFrom(''); setFilterDateTo('');
+    setFilterCar(''); setFilterTrip(''); setFilterDateFrom(''); setFilterDateTo('');
   };
 
   const exportToExcel = () => {
-    const maxDel = Math.max(...filtered.map((s) => s.deliveries.length), 0);
+    const getExportDeliveries = (s) => {
+      if (!filterDateFrom && !filterDateTo && !filterTrip) return s.deliveries;
+      return s.deliveries.filter((d) => {
+        const dd = d.delivery_date?.slice(0, 10);
+        const matchD = (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
+        const matchT = !filterTrip || (d.trip_number || 1) === parseInt(filterTrip);
+        return matchD && matchT;
+      });
+    };
+
+    const maxDel = Math.max(...filtered.map((s) => getExportDeliveries(s).length), 0);
 
     const rows = filtered.map((s) => {
+      const exportDels = getExportDeliveries(s);
       const row = {
         Date:            s.order_date?.slice(0, 10),
         'Party Name':    s.vendor_name,
@@ -356,10 +387,12 @@ export default function SoudasPage() {
         Dalal:           s.dalal_name || '',
       };
       for (let i = 0; i < maxDel; i++) {
-        const d = s.deliveries[i];
-        row[`Del Date ${i + 1}`] = d ? d.delivery_date?.slice(0, 10) : '';
-        row[`Del Qty ${i + 1}`]  = d ? parseFloat(d.qty_delivered) : '';
-        row[`Del Car ${i + 1}`]  = d?.car_number || '';
+        const d = exportDels[i];
+        row[`Del Date ${i + 1}`]  = d ? d.delivery_date?.slice(0, 10) : '';
+        row[`Del Trip ${i + 1}`]  = d ? (d.trip_number || 1) : '';
+        row[`Del Time ${i + 1}`]  = d?.trip_time ? d.trip_time.slice(0, 5) : '';
+        row[`Del Qty ${i + 1}`]   = d ? parseFloat(d.qty_delivered) : '';
+        row[`Del Car ${i + 1}`]   = d?.car_number || '';
       }
       row['Total Del'] = parseFloat(s.total_delivered);
       row['Balance']   = parseFloat(s.balance);
@@ -368,7 +401,7 @@ export default function SoudasPage() {
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const baseCols = [{ wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
-    const delCols  = Array.from({ length: maxDel * 3 }, () => ({ wch: 12 }));
+    const delCols  = Array.from({ length: maxDel * 5 }, () => ({ wch: 12 }));
     ws['!cols'] = [...baseCols, ...delCols, { wch: 10 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Soudas');
@@ -433,7 +466,7 @@ export default function SoudasPage() {
       {/* Collapsible filter panel */}
       {showFilters && (
         <div className="card p-4 mb-4 animate-slide-in">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
             {/* Status */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">Status</label>
@@ -465,6 +498,14 @@ export default function SoudasPage() {
               <select className="input-field" value={filterCar} onChange={(e) => setFilterCar(e.target.value)}>
                 <option value="">All Vehicles</option>
                 {vehicles.map((v) => <option key={v.id} value={v.name}>{v.name}</option>)}
+              </select>
+            </div>
+            {/* Trip # */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Trip #</label>
+              <select className="input-field" value={filterTrip} onChange={(e) => setFilterTrip(e.target.value)}>
+                <option value="">All Trips</option>
+                {tripOptions.map((t) => <option key={t} value={t}>Trip {t}</option>)}
               </select>
             </div>
             {/* Date From */}
@@ -543,9 +584,11 @@ export default function SoudasPage() {
                           {(() => {
                             const visibleDeliveries = s.deliveries.filter((d) => {
                               const dd = d.delivery_date?.slice(0, 10);
-                              return (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
+                              const matchD = (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
+                              const matchT = !filterTrip || (d.trip_number || 1) === parseInt(filterTrip);
+                              return matchD && matchT;
                             });
-                            const deliveriesToShow = (filterDateFrom || filterDateTo) ? visibleDeliveries : s.deliveries;
+                            const deliveriesToShow = (filterDateFrom || filterDateTo || filterTrip) ? visibleDeliveries : s.deliveries;
                             return deliveriesToShow.length === 0 ? (
                             <span className="text-slate-400 text-xs">{s.deliveries.length === 0 ? 'No deliveries yet' : 'No deliveries in range'}</span>
                           ) : (
@@ -554,6 +597,11 @@ export default function SoudasPage() {
                                 <div key={d.id} className="flex items-center gap-2 text-xs">
                                   <span className="w-4 text-slate-400 font-mono flex-shrink-0">{i + 1}.</span>
                                   <span className="text-slate-600 whitespace-nowrap">{formatDate(d.delivery_date)}</span>
+                                  {(d.trip_number || d.trip_time) && (
+                                    <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-semibold flex-shrink-0 whitespace-nowrap">
+                                      T{d.trip_number || 1}{d.trip_time ? ` · ${d.trip_time.slice(0, 5)}` : ''}
+                                    </span>
+                                  )}
                                   <span className="font-mono font-semibold text-emerald-700 w-12 text-right flex-shrink-0">{d.qty_delivered}</span>
                                   {d.car_number && (
                                     <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono text-xs uppercase tracking-wide flex-shrink-0">
