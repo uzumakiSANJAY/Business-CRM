@@ -40,7 +40,7 @@ async function getVendors(req, res, next) {
       FROM vendors v
       LEFT JOIN categories cat ON cat.id = v.category_id
       WHERE v.is_active = true
-      ORDER BY v.name ASC
+      ORDER BY v.sort_order ASC NULLS LAST, v.name ASC
     `);
 
     const ALERT_PRIORITY = { CRIT: 3, WARN: 2, OK: 1, DONE: 0 };
@@ -297,4 +297,26 @@ async function deleteVendor(req, res, next) {
   }
 }
 
-module.exports = { getVendors, getVendorById, createVendor, updateVendor, deleteVendor };
+/**
+ * PUT /api/vendors/reorder
+ * ADMIN only. Accepts { ids: [3,1,4,2,5] } and sets sort_order accordingly.
+ */
+async function reorderVendors(req, res, next) {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'ids array required' });
+    }
+    // Update each vendor's sort_order based on position in ids array
+    await Promise.all(
+      ids.map((id, index) =>
+        pool.query('UPDATE vendors SET sort_order = $1 WHERE id = $2', [index + 1, id])
+      )
+    );
+    res.json({ message: 'Order saved' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getVendors, getVendorById, createVendor, updateVendor, deleteVendor, reorderVendors };

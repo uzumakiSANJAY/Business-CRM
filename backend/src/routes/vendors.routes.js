@@ -5,6 +5,7 @@ const {
   createVendor,
   updateVendor,
   deleteVendor,
+  reorderVendors,
 } = require('../controllers/vendors.controller');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
@@ -22,6 +23,9 @@ router.get('/:id', getVendorById);
 
 // POST /api/vendors — ADMIN only
 router.post('/', requireRole('ADMIN'), createVendorValidator, validate, createVendor);
+
+// PUT /api/vendors/reorder — ADMIN only (must be before /:id)
+router.put('/reorder', requireRole('ADMIN'), reorderVendors);
 
 // PUT /api/vendors/:id — ADMIN only
 router.put('/:id', requireRole('ADMIN'), updateVendorValidator, validate, updateVendor);

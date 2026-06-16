@@ -1,13 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Search, Edit2, Trash2, FileText, X, MapPin, Receipt } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FileText, X, MapPin, Receipt, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import Layout from '../../components/shared/Layout.jsx';
 import AlertBadge from '../../components/shared/AlertBadge.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
 import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
-import { getVendors, createVendor, updateVendor, deleteVendor } from '../../api/vendors.api.js';
+import { getVendors, createVendor, updateVendor, deleteVendor, reorderVendors } from '../../api/vendors.api.js';
 import { getCategories } from '../../api/categories.api.js';
 import { getRoutes } from '../../api/routes.api.js';
 import { createBill } from '../../api/bills.api.js';
@@ -211,6 +225,79 @@ function BillModal({ vendor, onClose }) {
   );
 }
 
+function SortableVendorRow({ vendor, onEdit, onBillModal, onBillsPopup, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: vendor.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  return (
+    <tr ref={setNodeRef} style={style} className="hover:bg-slate-50 transition-colors group">
+      <td className="table-td w-8 px-2">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-slate-500 transition-colors rounded"
+          title="Drag to reorder"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </td>
+      <td className="table-td">
+        <p className="font-semibold text-slate-800 group-hover:text-indigo-700 transition-colors">{vendor.name}</p>
+        {vendor.phone && <p className="text-xs text-slate-400">{vendor.phone}</p>}
+      </td>
+      <td className="table-td">
+        {vendor.category_name
+          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">{vendor.category_name}</span>
+          : <span className="text-slate-300 text-xs">—</span>}
+      </td>
+      <td className="table-td">
+        {vendor.route
+          ? <div className="flex items-center gap-1"><MapPin className="h-3 w-3 text-slate-400 flex-shrink-0" /><span className="text-slate-600 text-sm">{vendor.route}</span></div>
+          : <span className="text-slate-300 text-xs">—</span>}
+      </td>
+      <td className="table-td text-slate-500">{vendor.contact_person || '—'}</td>
+      <td className="table-td text-right">
+        {vendor.active_bills?.length > 0 ? (
+          <button onClick={() => onBillsPopup(vendor)} className="text-right hover:bg-indigo-50 rounded-lg px-2 py-1 transition-colors group w-full">
+            <p className="font-semibold text-slate-800 group-hover:text-indigo-700">{formatINR(vendor.active_bills[0].amount)}</p>
+            <p className="text-xs text-slate-400">
+              Bill #{vendor.active_bills[0].id}
+              {vendor.active_bills.length > 1 && (
+                <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-xs font-semibold">+{vendor.active_bills.length - 1} more</span>
+              )}
+            </p>
+          </button>
+        ) : <span className="text-slate-300 text-xs">No bill</span>}
+      </td>
+      <td className="table-td text-right">
+        {vendor.active_bills?.length > 0
+          ? <span className="font-semibold text-rose-600">{formatINR(vendor.outstanding)}</span>
+          : <span className="text-slate-300">—</span>}
+      </td>
+      <td className="table-td">
+        {vendor.active_bills?.length > 0 ? <AlertBadge flag={vendor.alert_flag} /> : <span className="text-xs text-slate-300">—</span>}
+      </td>
+      <td className="table-td text-slate-500">
+        {vendor.active_bills?.length > 0 ? formatDate(vendor.active_bills[0].generated_date) : '—'}
+      </td>
+      <td className="table-td">
+        <div className="flex items-center justify-center gap-1">
+          <button onClick={() => onEdit(vendor)} className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors" title="Edit vendor">
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => onBillModal(vendor)} className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors" title="Generate bill">
+            <FileText className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => onDelete(vendor)} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors" title="Remove vendor">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export default function VendorsPage() {
   const qc = useQueryClient();
   const toast = useToast();
@@ -221,9 +308,13 @@ export default function VendorsPage() {
   const [billModal, setBillModal] = useState(null);
   const [billsPopup, setBillsPopup] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [localVendors, setLocalVendors] = useState([]);
 
   const { data: vendors = [], isLoading } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+
+  // Sync server data → local state (for optimistic drag reorder)
+  useEffect(() => { if (vendors.length) setLocalVendors(vendors); }, [vendors]);
 
   const deleteMutation = useMutation({
     mutationFn: deleteVendor,
@@ -231,9 +322,27 @@ export default function VendorsPage() {
     onError: () => toast('Error removing vendor', 'error'),
   });
 
-  const routes = [...new Set(vendors.map((v) => v.route).filter(Boolean))].sort();
+  const reorderMutation = useMutation({
+    mutationFn: reorderVendors,
+    onError: () => { toast('Failed to save order', 'error'); qc.invalidateQueries({ queryKey: ['vendors'] }); },
+  });
 
-  const filtered = vendors.filter((v) => {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = localVendors.findIndex((v) => v.id === active.id);
+    const newIndex = localVendors.findIndex((v) => v.id === over.id);
+    const reordered = arrayMove(localVendors, oldIndex, newIndex);
+    setLocalVendors(reordered);
+    reorderMutation.mutate(reordered.map((v) => v.id));
+  };
+
+  const routes = [...new Set(localVendors.map((v) => v.route).filter(Boolean))].sort();
+  const isFiltering = !!(search || routeFilter || categoryFilter);
+
+  const filtered = localVendors.filter((v) => {
     const matchSearch = v.name.toLowerCase().includes(search.toLowerCase());
     const matchRoute = !routeFilter || v.route === routeFilter;
     const matchCategory = !categoryFilter || String(v.category_id) === categoryFilter;
@@ -280,121 +389,59 @@ export default function VendorsPage() {
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="table-th">Vendor</th>
-                <th className="table-th">Category</th>
-                <th className="table-th">Route</th>
-                <th className="table-th">Contact</th>
-                <th className="table-th text-right">Active Bill</th>
-                <th className="table-th text-right">Outstanding</th>
-                <th className="table-th">Status</th>
-                <th className="table-th">Bill Date</th>
-                <th className="table-th text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {isLoading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={9} />)
-                : filtered.length === 0
-                ? (
-                  <tr>
-                    <td colSpan={9} className="py-16 text-center">
-                      <p className="text-slate-400 text-sm">No vendors found</p>
-                    </td>
-                  </tr>
-                )
-                : filtered.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="table-td">
-                      <p className="font-semibold text-slate-800 group-hover:text-indigo-700 transition-colors">{v.name}</p>
-                      {v.phone && <p className="text-xs text-slate-400">{v.phone}</p>}
-                    </td>
-                    <td className="table-td">
-                      {v.category_name
-                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">{v.category_name}</span>
-                        : <span className="text-slate-300 text-xs">—</span>}
-                    </td>
-                    <td className="table-td">
-                      {v.route
-                        ? (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-slate-400 flex-shrink-0" />
-                            <span className="text-slate-600 text-sm">{v.route}</span>
-                          </div>
-                        )
-                        : <span className="text-slate-300 text-xs">—</span>}
-                    </td>
-                    <td className="table-td text-slate-500">{v.contact_person || '—'}</td>
-                    <td className="table-td text-right">
-                      {v.active_bills?.length > 0 ? (
-                        <button
-                          onClick={() => setBillsPopup(v)}
-                          className="text-right hover:bg-indigo-50 rounded-lg px-2 py-1 transition-colors group w-full"
-                        >
-                          <p className="font-semibold text-slate-800 group-hover:text-indigo-700">{formatINR(v.active_bills[0].amount)}</p>
-                          <p className="text-xs text-slate-400">
-                            Bill #{v.active_bills[0].id}
-                            {v.active_bills.length > 1 && (
-                              <span className="ml-1 bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full text-xs font-semibold">
-                                +{v.active_bills.length - 1} more
-                              </span>
-                            )}
-                          </p>
-                        </button>
-                      ) : (
-                        <span className="text-slate-300 text-xs">No bill</span>
-                      )}
-                    </td>
-                    <td className="table-td text-right">
-                      {v.active_bills?.length > 0 ? (
-                        <span className="font-semibold text-rose-600">{formatINR(v.outstanding)}</span>
-                      ) : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="table-td">
-                      {v.active_bills?.length > 0
-                        ? <AlertBadge flag={v.alert_flag} />
-                        : <span className="text-xs text-slate-300">—</span>
-                      }
-                    </td>
-                    <td className="table-td text-slate-500">
-                      {v.active_bills?.length > 0 ? formatDate(v.active_bills[0].generated_date) : '—'}
-                    </td>
-                    <td className="table-td">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => setVendorModal(v)}
-                          className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"
-                          title="Edit vendor"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setBillModal(v)}
-                          className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
-                          title="Generate bill"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(v)}
-                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
-                          title="Remove vendor"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="card overflow-hidden">
+          {isFiltering && (
+            <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700 flex items-center gap-1.5">
+              <GripVertical className="h-3.5 w-3.5" />
+              Clear search/filters to drag and reorder vendors
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th className="table-th w-8"></th>
+                  <th className="table-th">Vendor</th>
+                  <th className="table-th">Category</th>
+                  <th className="table-th">Route</th>
+                  <th className="table-th">Contact</th>
+                  <th className="table-th text-right">Active Bill</th>
+                  <th className="table-th text-right">Outstanding</th>
+                  <th className="table-th">Status</th>
+                  <th className="table-th">Bill Date</th>
+                  <th className="table-th text-center">Actions</th>
+                </tr>
+              </thead>
+              <SortableContext items={localVendors.map((v) => v.id)} strategy={verticalListSortingStrategy}>
+                <tbody className="divide-y divide-slate-50">
+                  {isLoading
+                    ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={10} />)
+                    : filtered.length === 0
+                    ? (
+                      <tr>
+                        <td colSpan={10} className="py-16 text-center">
+                          <p className="text-slate-400 text-sm">No vendors found</p>
+                        </td>
+                      </tr>
+                    )
+                    : filtered.map((v) => (
+                      <SortableVendorRow
+                        key={v.id}
+                        vendor={v}
+                        onEdit={setVendorModal}
+                        onBillModal={setBillModal}
+                        onBillsPopup={setBillsPopup}
+                        onDelete={setDeleteTarget}
+                      />
+                    ))
+                  }
+                </tbody>
+              </SortableContext>
+            </table>
+          </div>
         </div>
-      </div>
+      </DndContext>
 
       {/* Modals */}
       {billsPopup && <VendorBillsModal vendor={billsPopup} onClose={() => setBillsPopup(null)} />}

@@ -16,6 +16,7 @@ const migrations = [
   'migration_v4.sql',
   'migration_v5.sql',
   'migration_v6.sql',
+  'migration_v7.sql',
 ];
 
 async function run() {
