@@ -647,6 +647,60 @@ export default function SoudasPage() {
     XLSX.writeFile(wb, `Soudas_${date}.xlsx`);
   };
 
+  const exportSummary = () => {
+    const getFilteredDeliveries = (s) => s.deliveries.filter((d) => {
+      const dd = d.delivery_date?.slice(0, 10);
+      const matchD = (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
+      const matchT = !filterTrip || (d.trip_number || 1) === parseInt(filterTrip);
+      return matchD && matchT;
+    });
+
+    const allTrips = [...new Set(
+      filtered.flatMap((s) => getFilteredDeliveries(s).map((d) => d.trip_number || 1))
+    )].sort((a, b) => a - b);
+
+    // Pivot: group by item + company + type
+    const itemMap = {};
+    filtered.forEach((s) => {
+      const key = [s.item_name, s.item_company_name || '', s.item_type_name || ''].join('||');
+      if (!itemMap[key]) {
+        itemMap[key] = { Item: s.item_name, Company: s.item_company_name || '', 'Package/Type': s.item_type_name || '', tripTotals: {}, total: 0 };
+      }
+      getFilteredDeliveries(s).forEach((d) => {
+        const t = d.trip_number || 1;
+        itemMap[key].tripTotals[t] = (itemMap[key].tripTotals[t] || 0) + parseFloat(d.qty_delivered);
+        itemMap[key].total += parseFloat(d.qty_delivered);
+      });
+    });
+
+    const summaryRows = Object.values(itemMap).map((item) => {
+      const row = { Item: item.Item, Company: item.Company, 'Package/Type': item['Package/Type'] };
+      allTrips.forEach((t) => { row[`Trip ${t}`] = item.tripTotals[t] || ''; });
+      row['Total'] = item.total;
+      return row;
+    });
+
+    // Grand total row
+    const totalRow = { Item: 'TOTAL', Company: '', 'Package/Type': '' };
+    allTrips.forEach((t) => {
+      totalRow[`Trip ${t}`] = Object.values(itemMap).reduce((s, it) => s + (it.tripTotals[t] || 0), 0);
+    });
+    totalRow['Total'] = Object.values(itemMap).reduce((s, it) => s + it.total, 0);
+    summaryRows.push(totalRow);
+
+    const ws = XLSX.utils.json_to_sheet(summaryRows);
+    ws['!cols'] = [
+      { wch: 22 }, { wch: 20 }, { wch: 16 },
+      ...allTrips.map(() => ({ wch: 12 })),
+      { wch: 12 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const label = [filterDateFrom, filterDateTo].filter(Boolean).join(' to ') || 'All Dates';
+    XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
+    XLSX.writeFile(wb, `Soudas_Summary_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const totalOrdered  = filtered.reduce((a, s) => a + parseFloat(s.qty_ordered || 0), 0);
   const totalDelivered = filtered.reduce((a, s) => a + parseFloat(s.total_delivered || 0), 0);
   const totalBalance  = filtered.reduce((a, s) => a + parseFloat(s.balance || 0), 0);
@@ -693,8 +747,11 @@ export default function SoudasPage() {
           )}
           <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
         </button>
-        <button onClick={exportToExcel} className="btn-secondary whitespace-nowrap" title="Export to Excel">
+        <button onClick={exportToExcel} className="btn-secondary whitespace-nowrap" title="Export full detail to Excel">
           <Download className="h-4 w-4" /> Export
+        </button>
+        <button onClick={exportSummary} className="btn-secondary whitespace-nowrap" title="Export trip-wise item summary">
+          <Download className="h-4 w-4" /> Summary
         </button>
         <button onClick={() => setModal('new')} className="btn-primary whitespace-nowrap">
           <Plus className="h-4 w-4" /> New Order
