@@ -1,4 +1,11 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Return DATE and TIMESTAMP columns as plain strings instead of JS Date objects.
+// Without this, pg converts "2026-06-11" → Date(2026-06-10T18:30:00Z) in UTC,
+// which serializes to the wrong ISO string and breaks IST date comparisons.
+types.setTypeParser(1082, (val) => val);   // DATE
+types.setTypeParser(1114, (val) => val);   // TIMESTAMP WITHOUT TIME ZONE
+types.setTypeParser(1184, (val) => val);   // TIMESTAMP WITH TIME ZONE
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

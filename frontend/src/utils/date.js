@@ -1,9 +1,10 @@
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+
+dayjs.extend(customParseFormat);
+
 export const formatDate = (date) =>
-  new Date(date).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  dayjs(String(date || '').slice(0, 10), 'YYYY-MM-DD').format('DD MMM YYYY');
 
 export const daysDiff = (date) =>
-  Math.floor((new Date() - new Date(date)) / (1000 * 60 * 60 * 24));
+  dayjs().startOf('day').diff(dayjs(String(date || '').slice(0, 10), 'YYYY-MM-DD'), 'day');
