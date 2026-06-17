@@ -809,7 +809,17 @@ export default function SoudasPage() {
                       <tr key={s.id} className="hover:bg-slate-50 transition-colors group align-top">
                         <td className="table-td text-slate-500 text-xs whitespace-nowrap">{formatDate(s.order_date)}</td>
                         <td className="table-td font-semibold text-slate-800">{s.vendor_name}</td>
-                        <td className="table-td text-slate-700">{s.item_name}</td>
+                        <td className="table-td">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-800 font-medium">{s.item_name}</span>
+                            {s.item_company_name && (
+                              <span className="text-xs text-slate-500">{s.item_company_name}</span>
+                            )}
+                            {s.item_type_name && (
+                              <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded w-fit">{s.item_type_name}</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="table-td text-right font-mono">{s.qty_ordered}</td>
                         <td className="table-td text-right font-mono text-slate-500">{s.rate}</td>
                         <td className="table-td text-slate-500 text-xs">{s.location || '—'}</td>
