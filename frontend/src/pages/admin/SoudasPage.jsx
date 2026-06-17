@@ -17,30 +17,26 @@ import { getVehicles } from '../../api/vehicles.api.js';
 import { getRoutes } from '../../api/routes.api.js';
 import { formatDate } from '../../utils/date.js';
 
-// ─── Souda Form Modal ────────────────────────────────────────────────────────
-function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
+// ─── Souda Edit Form (single-row, unchanged behaviour) ───────────────────────
+function SoudaEditForm({ souda, vendors, items, dalals, routes, onClose }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const isEdit = !!souda?.id;
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: souda
-      ? {
-          order_date: souda.order_date?.slice(0, 10),
-          vendor_id: souda.vendor_id,
-          item_id: souda.item_id,
-          item_company_id: souda.item_company_id || '',
-          item_type_id: souda.item_type_id || '',
-          qty_ordered: souda.qty_ordered,
-          rate: souda.rate,
-          location: souda.location || '',
-          dalal_id: souda.dalal_id || '',
-          notes: souda.notes || '',
-        }
-      : { order_date: new Date().toISOString().slice(0, 10) },
+    defaultValues: {
+      order_date: souda.order_date?.slice(0, 10),
+      vendor_id: souda.vendor_id,
+      item_id: souda.item_id,
+      item_company_id: souda.item_company_id || '',
+      item_type_id: souda.item_type_id || '',
+      qty_ordered: souda.qty_ordered,
+      rate: souda.rate,
+      location: souda.location || '',
+      dalal_id: souda.dalal_id || '',
+      notes: souda.notes || '',
+    },
   });
 
-  // ── Cascading masters: Item -> Company -> Package/Type ──
   const itemId = watch('item_id');
   const companyId = watch('item_company_id');
 
@@ -55,7 +51,6 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
     enabled: !!companyId,
   });
 
-  // Reset dependent selects when their parent changes (skip the initial mount/edit-prefill)
   const itemTouched = useRef(false);
   useEffect(() => {
     if (!itemTouched.current) { itemTouched.current = true; return; }
@@ -70,24 +65,17 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
   }, [companyId, setValue]);
 
   const mutation = useMutation({
-    mutationFn: (data) => {
-      const payload = {
-        ...data,
-        vendor_id: parseInt(data.vendor_id),
-        item_id: parseInt(data.item_id),
-        item_company_id: data.item_company_id ? parseInt(data.item_company_id) : null,
-        item_type_id: data.item_type_id ? parseInt(data.item_type_id) : null,
-        dalal_id: data.dalal_id ? parseInt(data.dalal_id) : null,
-        qty_ordered: parseFloat(data.qty_ordered),
-        rate: parseFloat(data.rate),
-      };
-      return isEdit ? updateSouda(souda.id, payload) : createSouda(payload);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['soudas'] });
-      toast(isEdit ? 'Order updated' : 'Order created', 'success');
-      onClose();
-    },
+    mutationFn: (data) => updateSouda(souda.id, {
+      ...data,
+      vendor_id: parseInt(data.vendor_id),
+      item_id: parseInt(data.item_id),
+      item_company_id: data.item_company_id ? parseInt(data.item_company_id) : null,
+      item_type_id: data.item_type_id ? parseInt(data.item_type_id) : null,
+      dalal_id: data.dalal_id ? parseInt(data.dalal_id) : null,
+      qty_ordered: parseFloat(data.qty_ordered),
+      rate: parseFloat(data.rate),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['soudas'] }); toast('Order updated', 'success'); onClose(); },
     onError: (e) => toast(e.response?.data?.message || 'Error', 'error'),
   });
 
@@ -96,7 +84,7 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-slide-in">
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-          <h3 className="text-base font-semibold text-slate-900">{isEdit ? 'Edit Order' : 'New Order (Souda)'}</h3>
+          <h3 className="text-base font-semibold text-slate-900">Edit Order</h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="h-4 w-4 text-slate-400" /></button>
         </div>
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-6 space-y-4">
@@ -117,7 +105,6 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
               {errors.vendor_id && <p className="text-red-500 text-xs mt-1">{errors.vendor_id.message}</p>}
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Item *</label>
@@ -136,7 +123,6 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
               </select>
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Company</label>
@@ -153,7 +139,6 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
               </select>
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Qty Ordered *</label>
@@ -170,7 +155,6 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
               {errors.rate && <p className="text-red-500 text-xs mt-1">{errors.rate.message}</p>}
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Dalal (Agent)</label>
@@ -184,19 +168,271 @@ function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
               <input className="input-field" placeholder="Optional..." {...register('notes')} />
             </div>
           </div>
-
           <div className="flex gap-3 justify-end pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
             <button type="submit" disabled={isSubmitting} className="btn-primary">
               {isSubmitting
                 ? <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                : isEdit ? 'Save Changes' : 'Create Order'}
+                : 'Save Changes'}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
+}
+
+// ─── Single order row (with own cascading queries) ───────────────────────────
+const emptyRow = () => ({ _id: Math.random(), item_id: '', location: '', item_company_id: '', item_type_id: '', qty_ordered: '', rate: '', dalal_id: '', notes: '' });
+
+function OrderRow({ row, index, onChange, items, dalals, routes, errors }) {
+  const { data: companies = [] } = useQuery({
+    queryKey: ['item-companies', row.item_id],
+    queryFn: () => getItemCompanies(row.item_id),
+    enabled: !!row.item_id,
+  });
+  const { data: types = [] } = useQuery({
+    queryKey: ['item-types', row.item_company_id],
+    queryFn: () => getItemTypes(row.item_company_id),
+    enabled: !!row.item_company_id,
+  });
+
+  const set = (field, val) => onChange({ ...row, [field]: val });
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="label">Item *</label>
+        <select
+          className={`input-field ${errors[`item_${index}`] ? 'border-red-400' : ''}`}
+          value={row.item_id}
+          onChange={(e) => onChange({ ...row, item_id: e.target.value, item_company_id: '', item_type_id: '' })}
+        >
+          <option value="">Select item...</option>
+          {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+        </select>
+        {errors[`item_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`item_${index}`]}</p>}
+      </div>
+      <div>
+        <label className="label">Location</label>
+        <select className="input-field" value={row.location} onChange={(e) => set('location', e.target.value)}>
+          <option value="">Select location...</option>
+          {routes.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label">Company</label>
+        <select
+          className="input-field"
+          disabled={!row.item_id}
+          value={row.item_company_id}
+          onChange={(e) => onChange({ ...row, item_company_id: e.target.value, item_type_id: '' })}
+        >
+          <option value="">{row.item_id ? 'Select company...' : 'Select item first'}</option>
+          {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label">Package / Type</label>
+        <select
+          className="input-field"
+          disabled={!row.item_company_id}
+          value={row.item_type_id}
+          onChange={(e) => set('item_type_id', e.target.value)}
+        >
+          <option value="">{row.item_company_id ? 'Select type...' : 'Select company first'}</option>
+          {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label">Qty Ordered *</label>
+        <input
+          type="number" step="0.01"
+          className={`input-field ${errors[`qty_${index}`] ? 'border-red-400' : ''}`}
+          placeholder="e.g. 100"
+          value={row.qty_ordered}
+          onChange={(e) => set('qty_ordered', e.target.value)}
+        />
+        {errors[`qty_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`qty_${index}`]}</p>}
+      </div>
+      <div>
+        <label className="label">Rate *</label>
+        <input
+          type="number" step="0.01"
+          className={`input-field ${errors[`rate_${index}`] ? 'border-red-400' : ''}`}
+          placeholder="e.g. 1655"
+          value={row.rate}
+          onChange={(e) => set('rate', e.target.value)}
+        />
+        {errors[`rate_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`rate_${index}`]}</p>}
+      </div>
+      <div>
+        <label className="label">Dalal (Agent)</label>
+        <select className="input-field" value={row.dalal_id} onChange={(e) => set('dalal_id', e.target.value)}>
+          <option value="">None</option>
+          {dalals.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label">Notes</label>
+        <input className="input-field" placeholder="Optional..." value={row.notes} onChange={(e) => set('notes', e.target.value)} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Souda Create Modal (multi-row) ──────────────────────────────────────────
+function SoudaCreateModal({ vendors, items, dalals, routes, onClose }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [sharedDate, setSharedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [vendorId, setVendorId] = useState('');
+  const [rows, setRows] = useState([emptyRow()]);
+  const [errors, setErrors] = useState({});
+
+  const updateRow = (index, updated) => setRows((prev) => prev.map((r, i) => (i === index ? updated : r)));
+  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const removeRow = (index) => setRows((prev) => prev.filter((_, i) => i !== index));
+
+  const validate = () => {
+    const errs = {};
+    if (!sharedDate) errs.date = 'Required';
+    if (!vendorId) errs.vendor = 'Required';
+    rows.forEach((r, i) => {
+      if (!r.item_id) errs[`item_${i}`] = 'Required';
+      if (!r.qty_ordered || parseFloat(r.qty_ordered) <= 0) errs[`qty_${i}`] = 'Required';
+      if (!r.rate || parseFloat(r.rate) <= 0) errs[`rate_${i}`] = 'Required';
+    });
+    return errs;
+  };
+
+  const handleSubmit = async () => {
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setSubmitting(true);
+    try {
+      for (const row of rows) {
+        await createSouda({
+          order_date: sharedDate,
+          vendor_id: parseInt(vendorId),
+          item_id: parseInt(row.item_id),
+          item_company_id: row.item_company_id ? parseInt(row.item_company_id) : null,
+          item_type_id: row.item_type_id ? parseInt(row.item_type_id) : null,
+          qty_ordered: parseFloat(row.qty_ordered),
+          rate: parseFloat(row.rate),
+          location: row.location || null,
+          dalal_id: row.dalal_id ? parseInt(row.dalal_id) : null,
+          notes: row.notes || null,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ['soudas'] });
+      toast(rows.length === 1 ? 'Order created' : `${rows.length} orders created`, 'success');
+      onClose();
+    } catch (e) {
+      toast(e.response?.data?.message || 'Error creating orders', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-slide-in max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-semibold text-slate-900">New Order (Souda)</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="h-4 w-4 text-slate-400" /></button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
+          {/* Shared: Date + Vendor */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Date *</label>
+              <input
+                type="date"
+                className={`input-field ${errors.date ? 'border-red-400' : ''}`}
+                value={sharedDate}
+                onChange={(e) => setSharedDate(e.target.value)}
+              />
+              {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
+            </div>
+            <div>
+              <label className="label">Party (Vendor) *</label>
+              <select
+                className={`input-field ${errors.vendor ? 'border-red-400' : ''}`}
+                value={vendorId}
+                onChange={(e) => setVendorId(e.target.value)}
+              >
+                <option value="">Select party...</option>
+                {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+              {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Per-item rows */}
+          <div className="space-y-4">
+            {rows.map((row, i) => (
+              <div key={row._id} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                {rows.length > 1 && (
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Item {i + 1}</span>
+                    <button
+                      onClick={() => removeRow(i)}
+                      className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                      title="Remove this item"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+                <OrderRow
+                  row={row}
+                  index={i}
+                  onChange={(updated) => updateRow(i, updated)}
+                  items={items}
+                  dalals={dalals}
+                  routes={routes}
+                  errors={errors}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Add another item */}
+          <button
+            type="button"
+            onClick={addRow}
+            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-indigo-200 rounded-xl text-sm font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Another Item
+          </button>
+        </div>
+
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-slate-100">
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="button" onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting
+              ? <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              : rows.length > 1 ? `Create ${rows.length} Orders` : 'Create Order'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dispatcher ───────────────────────────────────────────────────────────────
+function SoudaModal({ souda, vendors, items, dalals, routes, onClose }) {
+  if (souda) {
+    return <SoudaEditForm souda={souda} vendors={vendors} items={items} dalals={dalals} routes={routes} onClose={onClose} />;
+  }
+  return <SoudaCreateModal vendors={vendors} items={items} dalals={dalals} routes={routes} onClose={onClose} />;
 }
 
 // ─── Add Delivery Modal ────────────────────────────────────────────────────────
