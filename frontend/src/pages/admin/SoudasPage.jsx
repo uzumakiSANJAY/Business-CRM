@@ -617,6 +617,8 @@ export default function SoudasPage() {
         Date:            s.order_date?.slice(0, 10),
         'Party Name':    s.vendor_name,
         Item:            s.item_name,
+        Company:         s.item_company_name || '',
+        'Package/Type':  s.item_type_name || '',
         'Qty (Ordered)': parseFloat(s.qty_ordered),
         Rate:            parseFloat(s.rate),
         Location:        s.location || '',
@@ -636,7 +638,7 @@ export default function SoudasPage() {
     });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    const baseCols = [{ wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
+    const baseCols = [{ wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
     const delCols  = Array.from({ length: maxDel * 5 }, () => ({ wch: 12 }));
     ws['!cols'] = [...baseCols, ...delCols, { wch: 10 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
