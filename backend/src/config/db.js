@@ -7,7 +7,8 @@ types.setTypeParser(1082, (val) => val);   // DATE
 types.setTypeParser(1114, (val) => val);   // TIMESTAMP WITHOUT TIME ZONE
 types.setTypeParser(1184, (val) => val);   // TIMESTAMP WITH TIME ZONE
 
-const dbUrl = process.env.DATABASE_URL || '';
+// POSTGRES_URL takes priority — avoids Railway's conflicting empty DATABASE_URL injection
+const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
 const pool = new Pool({
   connectionString: dbUrl,
   ssl: dbUrl.includes('.internal') || dbUrl.includes('localhost') ? false : { rejectUnauthorized: false },

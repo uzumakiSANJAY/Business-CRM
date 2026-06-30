@@ -4,7 +4,7 @@ const path = require('path');
 
 require('dotenv').config();
 
-const url = process.env.DATABASE_URL || '';
+const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
 const pool = new Pool({
   connectionString: url,
   ssl: url.includes('.internal') || url.includes('localhost') ? false : { rejectUnauthorized: false },

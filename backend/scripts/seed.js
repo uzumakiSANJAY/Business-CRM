@@ -17,7 +17,7 @@ require('dotenv').config();
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-const url = process.env.DATABASE_URL || '';
+const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
 const pool = new Pool({
   connectionString: url,
   ssl: url.includes('.internal') || url.includes('localhost') ? false : { rejectUnauthorized: false },
