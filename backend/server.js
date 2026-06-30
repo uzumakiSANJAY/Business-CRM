@@ -10,9 +10,9 @@ require('dotenv').config();
 if (process.env.NODE_ENV === 'production') {
   try {
     console.log('Running database migrations...');
-    execSync('node scripts/migrate.js', { stdio: 'inherit' });
+    execSync(`node "${path.join(__dirname, 'scripts/migrate.js')}"`, { stdio: 'inherit' });
     console.log('Running seed...');
-    execSync('node scripts/seed.js', { stdio: 'inherit' });
+    execSync(`node "${path.join(__dirname, 'scripts/seed.js')}"`, { stdio: 'inherit' });
     console.log('Setup complete.');
   } catch (e) {
     console.error('Setup error (continuing):', e.message);
