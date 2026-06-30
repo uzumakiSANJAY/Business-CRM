@@ -7,9 +7,10 @@ types.setTypeParser(1082, (val) => val);   // DATE
 types.setTypeParser(1114, (val) => val);   // TIMESTAMP WITHOUT TIME ZONE
 types.setTypeParser(1184, (val) => val);   // TIMESTAMP WITH TIME ZONE
 
+const dbUrl = process.env.DATABASE_URL || '';
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString: dbUrl,
+  ssl: dbUrl.includes('.internal') || dbUrl.includes('localhost') ? false : { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,

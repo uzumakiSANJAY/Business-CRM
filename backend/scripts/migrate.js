@@ -4,9 +4,10 @@ const path = require('path');
 
 require('dotenv').config();
 
+const url = process.env.DATABASE_URL || '';
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString: url,
+  ssl: url.includes('.internal') || url.includes('localhost') ? false : { rejectUnauthorized: false },
 });
 
 const migrations = [
