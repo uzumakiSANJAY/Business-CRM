@@ -6,16 +6,14 @@ const path = require('path');
 const { execSync } = require('child_process');
 require('dotenv').config();
 
-// Auto-run migrations + seed on startup in production
+// Auto-run migrations on startup in production (idempotent — safe to repeat)
 if (process.env.NODE_ENV === 'production') {
   try {
     console.log('Running database migrations...');
     execSync(`node "${path.join(__dirname, 'scripts/migrate.js')}"`, { stdio: 'inherit' });
-    console.log('Running seed...');
-    execSync(`node "${path.join(__dirname, 'scripts/seed.js')}"`, { stdio: 'inherit' });
-    console.log('Setup complete.');
+    console.log('Migrations complete.');
   } catch (e) {
-    console.error('Setup error (continuing):', e.message);
+    console.error('Migration error (continuing):', e.message);
   }
 }
 
