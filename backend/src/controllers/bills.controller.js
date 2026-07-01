@@ -131,15 +131,6 @@ async function createBill(req, res, next) {
       return res.status(404).json({ message: 'Vendor not found or inactive' });
     }
 
-    // RULE 1: Only one ACTIVE bill per vendor at a time
-    const activeCheck = await pool.query(
-      "SELECT id FROM bills WHERE vendor_id = $1 AND status = 'ACTIVE'",
-      [vendor_id]
-    );
-    if (activeCheck.rows.length > 0) {
-      return res.status(409).json({ message: 'This vendor already has an active bill. Cancel or mark it as paid before generating a new one.' });
-    }
-
     const type = (bill_type === 'CHEQUE') ? 'CHEQUE' : 'CASH';
     const result = await pool.query(
       `INSERT INTO bills (vendor_id, amount, generated_date, generated_by, bill_type)
