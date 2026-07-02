@@ -784,7 +784,7 @@ export default function SoudasPage() {
   return (
     <Layout title="Soudas (Orders)">
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div className="card p-4">
           <p className="text-xs text-slate-500 mb-1">Total Orders</p>
           <p className="text-2xl font-bold text-slate-800">{filtered.length}</p>
@@ -802,8 +802,8 @@ export default function SoudasPage() {
       </div>
 
       {/* Top bar: Search + Filter toggle + Export + New Order */}
-      <div className="flex flex-wrap items-center gap-3 mb-3">
-        <div className="relative flex-1 min-w-48">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+        <div className="relative flex-1 min-w-0 basis-full sm:basis-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             className="input-field pl-9"
@@ -814,23 +814,23 @@ export default function SoudasPage() {
         </div>
         <button
           onClick={() => setShowFilters((p) => !p)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all ${showFilters || activeFilterCount > 0 ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border text-sm font-medium transition-all ${showFilters || activeFilterCount > 0 ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
         >
           <Filter className="h-4 w-4" />
-          Filters
+          <span className="hidden xs:inline">Filters</span>
           {activeFilterCount > 0 && (
             <span className="bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{activeFilterCount}</span>
           )}
           <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
         </button>
-        <button onClick={exportToExcel} className="btn-secondary whitespace-nowrap" title="Export full detail to Excel">
-          <Download className="h-4 w-4" /> Export
+        <button onClick={exportToExcel} className="btn-secondary" title="Export full detail to Excel">
+          <Download className="h-4 w-4" /> <span className="hidden sm:inline">Export</span>
         </button>
-        <button onClick={exportSummary} className="btn-secondary whitespace-nowrap" title="Export trip-wise item summary">
-          <Download className="h-4 w-4" /> Summary
+        <button onClick={exportSummary} className="btn-secondary" title="Export trip-wise item summary">
+          <Download className="h-4 w-4" /> <span className="hidden sm:inline">Summary</span>
         </button>
-        <button onClick={() => setModal('new')} className="btn-primary whitespace-nowrap">
-          <Plus className="h-4 w-4" /> New Order
+        <button onClick={() => setModal('new')} className="btn-primary ml-auto sm:ml-0">
+          <Plus className="h-4 w-4" /> <span className="hidden xs:inline">New Order</span>
         </button>
       </div>
 

@@ -170,7 +170,7 @@ export default function CollectPage() {
                   <Receipt className="h-3.5 w-3.5" />
                   Paying Against Bill #{selectedBill.id}
                 </div>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
                     <p className="text-xs text-indigo-500 font-medium">Bill Amount</p>
                     <p className="text-sm font-bold text-indigo-800">{formatINR(selectedBill.amount)}</p>

@@ -108,7 +108,7 @@ function VendorModal({ vendor, onClose }) {
             <input className={`input-field ${errors.name ? 'border-red-400' : ''}`} placeholder="Company name" {...register('name', { required: 'Required' })} />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Contact Person</label>
               <input className="input-field" placeholder="Full name" {...register('contact_person')} />
@@ -118,7 +118,7 @@ function VendorModal({ vendor, onClose }) {
               <input className="input-field" placeholder="+91 XXXXX XXXXX" {...register('phone')} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Category</label>
               <select className="input-field" {...register('category_id')}>

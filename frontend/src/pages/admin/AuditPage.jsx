@@ -75,24 +75,24 @@ function CollectionsReport() {
     <div className="space-y-4">
       {/* Filters */}
       <div className="card p-4">
-        <div className="flex flex-wrap gap-3 items-end">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div>
             <label className="block text-xs text-slate-500 mb-1">From Date</label>
             <input type="date" value={filters.from_date} max={today}
               onChange={e => setFilters(f => ({ ...f, from_date: e.target.value }))}
-              className="input-field text-sm py-1.5 px-2 h-9" />
+              className="input-field text-sm" />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">To Date</label>
             <input type="date" value={filters.to_date} max={today}
               onChange={e => setFilters(f => ({ ...f, to_date: e.target.value }))}
-              className="input-field text-sm py-1.5 px-2 h-9" />
+              className="input-field text-sm" />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Route</label>
             <select value={filters.route}
               onChange={e => setFilters(f => ({ ...f, route: e.target.value, vendor_id: '' }))}
-              className="input-field text-sm py-1.5 px-2 h-9 min-w-[140px]">
+              className="input-field text-sm">
               <option value="">All Routes</option>
               {routes.filter(r => r.is_active).map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
             </select>
@@ -101,7 +101,7 @@ function CollectionsReport() {
             <label className="block text-xs text-slate-500 mb-1">Vendor</label>
             <select value={filters.vendor_id}
               onChange={e => setFilters(f => ({ ...f, vendor_id: e.target.value }))}
-              className="input-field text-sm py-1.5 px-2 h-9 min-w-[160px]">
+              className="input-field text-sm">
               <option value="">All Vendors</option>
               {filteredVendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
@@ -110,7 +110,7 @@ function CollectionsReport() {
             <label className="block text-xs text-slate-500 mb-1">Collector</label>
             <select value={filters.collector_id}
               onChange={e => setFilters(f => ({ ...f, collector_id: e.target.value }))}
-              className="input-field text-sm py-1.5 px-2 h-9 min-w-[140px]">
+              className="input-field text-sm">
               <option value="">All Collectors</option>
               {collectors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -119,20 +119,22 @@ function CollectionsReport() {
             <label className="block text-xs text-slate-500 mb-1">Status</label>
             <select value={filters.status}
               onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-              className="input-field text-sm py-1.5 px-2 h-9">
+              className="input-field text-sm">
               <option value="">All Status</option>
               <option value="CONFIRMED">Confirmed</option>
               <option value="PENDING">Pending</option>
               <option value="REJECTED">Rejected</option>
             </select>
           </div>
-          <button onClick={applyFilters} className="btn-primary py-1.5 px-4 h-9 text-sm">Apply</button>
-          <button onClick={clearFilters} className="btn-secondary py-1.5 px-4 h-9 text-sm">Clear</button>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button onClick={applyFilters} className="btn-primary py-2 px-5 text-sm">Apply</button>
+          <button onClick={clearFilters} className="btn-secondary py-2 px-5 text-sm">Clear</button>
         </div>
       </div>
 
       {/* Summary KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <div className="card p-4 flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-emerald-50"><IndianRupee className="h-5 w-5 text-emerald-600" /></div>
           <div>
