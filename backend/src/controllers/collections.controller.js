@@ -8,74 +8,67 @@ const { recalcAndMarkPaid } = require('../services/balance.service');
  */
 async function getCollections(req, res, next) {
   try {
-    let query;
-    let params;
+    const { from_date, to_date, collector_id, status } = req.query;
 
-    if (req.user.role === 'ADMIN') {
-      query = `
-        SELECT
-          c.id,
-          c.bill_id,
-          c.vendor_id,
-          c.collector_id,
-          c.amount,
-          c.collection_date,
-          c.notes,
-          c.payment_mode,
-          c.status,
-          c.rejection_reason,
-          c.submitted_at,
-          c.confirmed_at,
-          c.confirmed_by,
-          v.name          AS vendor_name,
-          v.route         AS vendor_route,
-          u.name          AS collector_name,
-          b.amount        AS bill_amount,
-          b.generated_date,
-          b.status        AS bill_status,
-          adm.name        AS confirmed_by_name
-        FROM collections c
-        JOIN vendors v ON v.id = c.vendor_id
-        JOIN users u ON u.id = c.collector_id
-        JOIN bills b ON b.id = c.bill_id
-        LEFT JOIN users adm ON adm.id = c.confirmed_by
-        ORDER BY c.submitted_at DESC
-      `;
-      params = [];
-    } else {
-      // COLLECTOR: own collections only
-      query = `
-        SELECT
-          c.id,
-          c.bill_id,
-          c.vendor_id,
-          c.collector_id,
-          c.amount,
-          c.collection_date,
-          c.notes,
-          c.payment_mode,
-          c.status,
-          c.rejection_reason,
-          c.submitted_at,
-          c.confirmed_at,
-          c.confirmed_by,
-          v.name          AS vendor_name,
-          v.route         AS vendor_route,
-          u.name          AS collector_name,
-          b.amount        AS bill_amount,
-          b.generated_date,
-          b.status        AS bill_status,
-          adm.name        AS confirmed_by_name
-        FROM collections c
-        JOIN vendors v ON v.id = c.vendor_id
-        JOIN users u ON u.id = c.collector_id
-        JOIN bills b ON b.id = c.bill_id
-        LEFT JOIN users adm ON adm.id = c.confirmed_by
-        WHERE c.collector_id = $1
-        ORDER BY c.submitted_at DESC
-      `;
-      params = [req.user.id];
+    const conditions = [];
+    const params = [];
+    let idx = 1;
+
+    if (req.user.role !== 'ADMIN') {
+      conditions.push(`c.collector_id = $${idx++}`);
+      params.push(req.user.id);
+    } else if (collector_id) {
+      conditions.push(`c.collector_id = $${idx++}`);
+      params.push(parseInt(collector_id));
     }
+
+    if (status) {
+      conditions.push(`c.status = $${idx++}`);
+      params.push(status.toUpperCase());
+    }
+
+    if (from_date) {
+      conditions.push(`c.collection_date >= $${idx++}`);
+      params.push(from_date);
+    }
+
+    if (to_date) {
+      conditions.push(`c.collection_date <= $${idx++}`);
+      params.push(to_date);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT
+        c.id,
+        c.bill_id,
+        c.vendor_id,
+        c.collector_id,
+        c.amount,
+        c.collection_date,
+        c.notes,
+        c.payment_mode,
+        c.status,
+        c.rejection_reason,
+        c.submitted_at,
+        c.confirmed_at,
+        c.confirmed_by,
+        v.name          AS vendor_name,
+        v.route         AS vendor_route,
+        u.name          AS collector_name,
+        b.amount        AS bill_amount,
+        b.generated_date,
+        b.status        AS bill_status,
+        adm.name        AS confirmed_by_name
+      FROM collections c
+      JOIN vendors v ON v.id = c.vendor_id
+      JOIN users u ON u.id = c.collector_id
+      JOIN bills b ON b.id = c.bill_id
+      LEFT JOIN users adm ON adm.id = c.confirmed_by
+      ${where}
+      ORDER BY c.collection_date DESC, c.submitted_at DESC
+    `;
 
     const result = await pool.query(query, params);
     res.json({ collections: result.rows });
