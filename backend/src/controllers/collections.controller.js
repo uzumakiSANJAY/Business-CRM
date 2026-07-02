@@ -27,6 +27,18 @@ async function getCollections(req, res, next) {
       params.push(status.toUpperCase());
     }
 
+    const { vendor_id: vendorId, route } = req.query;
+
+    if (vendorId) {
+      conditions.push(`c.vendor_id = $${idx++}`);
+      params.push(parseInt(vendorId));
+    }
+
+    if (route) {
+      conditions.push(`v.route = $${idx++}`);
+      params.push(route);
+    }
+
     if (from_date) {
       conditions.push(`c.collection_date >= $${idx++}`);
       params.push(from_date);

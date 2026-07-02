@@ -6,6 +6,8 @@ import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
 import { getAuditLogs } from '../../api/audit.api.js';
 import { getCollections } from '../../api/collections.api.js';
 import { getCollectors } from '../../api/collectors.api.js';
+import { getVendors } from '../../api/vendors.api.js';
+import { getRoutes } from '../../api/routes.api.js';
 import { formatDate } from '../../utils/date.js';
 
 const STATUS_STYLES = {
@@ -38,10 +40,17 @@ function fmt(n) {
 // ─── Collections Report Tab ──────────────────────────────────────────────────
 function CollectionsReport() {
   const today = new Date().toISOString().slice(0, 10);
-  const [filters, setFilters] = useState({ from_date: '', to_date: '', collector_id: '', status: '' });
+  const [filters, setFilters] = useState({ from_date: '', to_date: '', collector_id: '', status: '', route: '', vendor_id: '' });
   const [applied, setApplied] = useState({});
 
   const { data: collectors = [] } = useQuery({ queryKey: ['collectors'], queryFn: getCollectors });
+  const { data: allVendors = [] } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
+  const { data: routes = [] } = useQuery({ queryKey: ['routes'], queryFn: getRoutes });
+
+  // When route changes, narrow vendor list and reset vendor selection
+  const filteredVendors = filters.route
+    ? allVendors.filter(v => v.route === filters.route && v.is_active)
+    : allVendors.filter(v => v.is_active);
 
   const { data: collections = [], isLoading } = useQuery({
     queryKey: ['collections-report', applied],
@@ -59,7 +68,7 @@ function CollectionsReport() {
   });
 
   const applyFilters = () => setApplied({ ...filters });
-  const clearFilters = () => { setFilters({ from_date: '', to_date: '', collector_id: '', status: '' }); setApplied({}); };
+  const clearFilters = () => { setFilters({ from_date: '', to_date: '', collector_id: '', status: '', route: '', vendor_id: '' }); setApplied({}); };
 
   return (
     <div className="space-y-4">
@@ -79,10 +88,28 @@ function CollectionsReport() {
               className="input-field text-sm py-1.5 px-2 h-9" />
           </div>
           <div>
+            <label className="block text-xs text-slate-500 mb-1">Route</label>
+            <select value={filters.route}
+              onChange={e => setFilters(f => ({ ...f, route: e.target.value, vendor_id: '' }))}
+              className="input-field text-sm py-1.5 px-2 h-9 min-w-[140px]">
+              <option value="">All Routes</option>
+              {routes.filter(r => r.is_active).map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Vendor</label>
+            <select value={filters.vendor_id}
+              onChange={e => setFilters(f => ({ ...f, vendor_id: e.target.value }))}
+              className="input-field text-sm py-1.5 px-2 h-9 min-w-[160px]">
+              <option value="">All Vendors</option>
+              {filteredVendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs text-slate-500 mb-1">Collector</label>
             <select value={filters.collector_id}
               onChange={e => setFilters(f => ({ ...f, collector_id: e.target.value }))}
-              className="input-field text-sm py-1.5 px-2 h-9">
+              className="input-field text-sm py-1.5 px-2 h-9 min-w-[140px]">
               <option value="">All Collectors</option>
               {collectors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

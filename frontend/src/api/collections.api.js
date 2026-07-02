@@ -6,6 +6,8 @@ export const getCollections    = (params = {}) => {
   if (params.to_date)      q.set('to_date', params.to_date);
   if (params.collector_id) q.set('collector_id', params.collector_id);
   if (params.status)       q.set('status', params.status);
+  if (params.vendor_id)    q.set('vendor_id', params.vendor_id);
+  if (params.route)        q.set('route', params.route);
   const qs = q.toString();
   return api.get(`/collections${qs ? `?${qs}` : ''}`).then((r) => r.data.collections);
 };
