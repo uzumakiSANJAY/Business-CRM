@@ -282,7 +282,7 @@ function OrderRow({ row, index, onChange, items, dalals, routes, errors }) {
       </div>
       <div>
         <label className="label">Location</label>
-        <select className="input-field" value={row.location} onChange={(e) => set('location', e.target.value)}>
+        <select className="input-field disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" disabled value={row.location} onChange={(e) => set('location', e.target.value)}>
           <option value="">Select location...</option>
           {routes.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
         </select>
