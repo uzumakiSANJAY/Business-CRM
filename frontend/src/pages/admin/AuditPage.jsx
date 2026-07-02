@@ -48,9 +48,10 @@ function CollectionsReport() {
   const { data: routes = [] } = useQuery({ queryKey: ['routes'], queryFn: getRoutes });
 
   // When route changes, narrow vendor list and reset vendor selection
+  // API already returns only active vendors (WHERE is_active = true), no need to re-filter
   const filteredVendors = filters.route
-    ? allVendors.filter(v => v.route === filters.route && v.is_active)
-    : allVendors.filter(v => v.is_active);
+    ? allVendors.filter(v => v.route === filters.route)
+    : allVendors;
 
   const { data: collections = [], isLoading } = useQuery({
     queryKey: ['collections-report', applied],
