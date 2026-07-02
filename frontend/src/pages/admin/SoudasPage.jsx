@@ -17,6 +17,73 @@ import { getVehicles } from '../../api/vehicles.api.js';
 import { getRoutes } from '../../api/routes.api.js';
 import { formatDate } from '../../utils/date.js';
 
+// ─── Searchable vendor combobox ───────────────────────────────────────────────
+function VendorSearchSelect({ vendors, value, onChange, hasError }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const selected = vendors.find((v) => String(v.id) === String(value));
+  const filtered = query.trim()
+    ? vendors.filter((v) => v.name.toLowerCase().includes(query.toLowerCase()))
+    : vendors;
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (v) => { onChange(String(v.id)); setQuery(''); setOpen(false); };
+  const clear = () => { onChange(''); setQuery(''); };
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className={`input-field flex items-center gap-2 cursor-pointer ${hasError ? 'border-red-400' : ''}`}
+        onClick={() => { setOpen((o) => !o); if (!open) setTimeout(() => ref.current?.querySelector('input')?.focus(), 10); }}
+      >
+        {open ? (
+          <input
+            autoFocus
+            className="flex-1 outline-none bg-transparent text-sm text-slate-800 placeholder-slate-400"
+            placeholder="Type to search..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className={`flex-1 text-sm truncate ${selected ? 'text-slate-800' : 'text-slate-400'}`}>
+            {selected ? selected.name : 'Select party...'}
+          </span>
+        )}
+        {selected && !open && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); clear(); }}
+            className="text-slate-300 hover:text-slate-500 text-xs leading-none">✕</button>
+        )}
+        <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+      </div>
+      {open && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+          {filtered.length === 0
+            ? <li className="px-4 py-3 text-sm text-slate-400">No vendors found</li>
+            : filtered.map((v) => (
+              <li
+                key={v.id}
+                onMouseDown={() => select(v)}
+                className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-indigo-50 hover:text-indigo-700 ${String(v.id) === String(value) ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-700'}`}
+              >
+                {v.name}
+              </li>
+            ))
+          }
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ─── Souda Edit Form (single-row, unchanged behaviour) ───────────────────────
 function SoudaEditForm({ souda, vendors, items, dalals, routes, onClose }) {
   const qc = useQueryClient();
@@ -360,14 +427,12 @@ function SoudaCreateModal({ vendors, items, dalals, routes, onClose }) {
             </div>
             <div>
               <label className="label">Party (Vendor) *</label>
-              <select
-                className={`input-field ${errors.vendor ? 'border-red-400' : ''}`}
+              <VendorSearchSelect
+                vendors={vendors}
                 value={vendorId}
-                onChange={(e) => setVendorId(e.target.value)}
-              >
-                <option value="">Select party...</option>
-                {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-              </select>
+                onChange={setVendorId}
+                hasError={!!errors.vendor}
+              />
               {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>}
             </div>
           </div>
