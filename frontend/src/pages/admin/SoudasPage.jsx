@@ -358,8 +358,19 @@ function SoudaCreateModal({ vendors, items, dalals, routes, onClose }) {
   const [rows, setRows] = useState([emptyRow()]);
   const [errors, setErrors] = useState({});
 
+  const handleVendorChange = (id) => {
+    setVendorId(id);
+    const vendor = vendors.find((v) => String(v.id) === String(id));
+    const route = vendor?.route || '';
+    if (route) setRows((prev) => prev.map((r) => ({ ...r, location: route })));
+  };
+
   const updateRow = (index, updated) => setRows((prev) => prev.map((r, i) => (i === index ? updated : r)));
-  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const addRow = () => {
+    const vendor = vendors.find((v) => String(v.id) === String(vendorId));
+    const route = vendor?.route || '';
+    setRows((prev) => [...prev, { ...emptyRow(), location: route }]);
+  };
   const removeRow = (index) => setRows((prev) => prev.filter((_, i) => i !== index));
 
   const validate = () => {
@@ -430,7 +441,7 @@ function SoudaCreateModal({ vendors, items, dalals, routes, onClose }) {
               <VendorSearchSelect
                 vendors={vendors}
                 value={vendorId}
-                onChange={setVendorId}
+                onChange={handleVendorChange}
                 hasError={!!errors.vendor}
               />
               {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor}</p>}
