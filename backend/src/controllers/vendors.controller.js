@@ -319,4 +319,101 @@ async function reorderVendors(req, res, next) {
   }
 }
 
-module.exports = { getVendors, getVendorById, createVendor, updateVendor, deleteVendor, reorderVendors };
+/**
+ * POST /api/vendors/bulk-upload
+ * ADMIN only. Import vendors from a JSON array parsed from Excel on the client.
+ * Rules:
+ *   - Vendor name exists (case-insensitive) → skip (keep existing)
+ *   - Vendor name not found → create new vendor
+ *   - Route name matches existing route → use it
+ *   - Route name not found → create the route then use it
+ *   - Category name matches existing → link; otherwise leave null
+ */
+async function bulkUploadVendors(req, res, next) {
+  const client = await pool.connect();
+  try {
+    const rows = req.body.vendors;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: 'No vendor rows provided' });
+    }
+
+    await client.query('BEGIN');
+
+    // Load existing vendors
+    const existingVendors = await client.query('SELECT LOWER(name) AS lname FROM vendors');
+    const existingNames = new Set(existingVendors.rows.map((r) => r.lname));
+
+    // Load existing routes
+    const existingRoutesRes = await client.query('SELECT id, name, LOWER(name) AS lname FROM routes WHERE is_active = true');
+    const routeMap = {}; // lower → { id, name }
+    existingRoutesRes.rows.forEach((r) => { routeMap[r.lname] = { id: r.id, name: r.name }; });
+
+    // Load existing categories
+    const existingCatsRes = await client.query('SELECT id, LOWER(name) AS lname FROM categories');
+    const catMap = {};
+    existingCatsRes.rows.forEach((r) => { catMap[r.lname] = r.id; });
+
+    let created = 0;
+    let skipped = 0;
+    const skippedNames = [];
+    const createdNames = [];
+
+    for (const row of rows) {
+      const name = (row['Vendor Name'] || row.name || '').trim();
+      if (!name) { skipped++; continue; }
+
+      if (existingNames.has(name.toLowerCase())) {
+        skipped++;
+        skippedNames.push(name);
+        continue;
+      }
+
+      // Resolve route — create if not found
+      const routeRaw = (row['Route'] || row.route || '').trim();
+      let routeValue = null;
+      if (routeRaw) {
+        const lRoute = routeRaw.toLowerCase();
+        if (routeMap[lRoute]) {
+          routeValue = routeMap[lRoute].name;
+        } else {
+          const nr = await client.query(
+            `INSERT INTO routes (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id, name`,
+            [routeRaw]
+          );
+          routeMap[lRoute] = { id: nr.rows[0].id, name: nr.rows[0].name };
+          routeValue = nr.rows[0].name;
+        }
+      }
+
+      // Resolve category
+      const catRaw = (row['Category'] || row.category || '').trim();
+      const categoryId = catRaw ? (catMap[catRaw.toLowerCase()] || null) : null;
+
+      const ins = await client.query(
+        `INSERT INTO vendors (name, route, created_by)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [name, routeValue, req.user.id]
+      );
+
+      existingNames.add(name.toLowerCase());
+      created++;
+      createdNames.push(name);
+
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+         VALUES ($1, 'BULK_CREATE_VENDOR', 'vendors', $2, $3)`,
+        [req.user.id, ins.rows[0].id, JSON.stringify({ name, route: routeValue })]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ created, skipped, createdNames, skippedNames });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { getVendors, getVendorById, createVendor, updateVendor, deleteVendor, reorderVendors, bulkUploadVendors };

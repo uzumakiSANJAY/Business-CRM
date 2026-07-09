@@ -6,6 +6,7 @@ const {
   updateVendor,
   deleteVendor,
   reorderVendors,
+  bulkUploadVendors,
 } = require('../controllers/vendors.controller');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
@@ -32,5 +33,8 @@ router.put('/:id', requireRole('ADMIN'), updateVendorValidator, validate, update
 
 // DELETE /api/vendors/:id — ADMIN only
 router.delete('/:id', requireRole('ADMIN'), deleteVendor);
+
+// POST /api/vendors/bulk-upload — ADMIN only
+router.post('/bulk-upload', requireRole('ADMIN'), bulkUploadVendors);
 
 module.exports = router;

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Plus, Search, Edit2, Trash2, FileText, X, MapPin, Receipt, GripVertical } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FileText, X, MapPin, Receipt, GripVertical, Upload, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   DndContext,
   closestCenter,
@@ -21,12 +22,166 @@ import AlertBadge from '../../components/shared/AlertBadge.jsx';
 import ConfirmModal from '../../components/shared/ConfirmModal.jsx';
 import { SkeletonRow } from '../../components/shared/LoadingSpinner.jsx';
 import { useToast } from '../../components/shared/Toast.jsx';
-import { getVendors, createVendor, updateVendor, deleteVendor, reorderVendors } from '../../api/vendors.api.js';
+import { getVendors, createVendor, updateVendor, deleteVendor, reorderVendors, bulkUploadVendors } from '../../api/vendors.api.js';
 import { getCategories } from '../../api/categories.api.js';
 import { getRoutes } from '../../api/routes.api.js';
 import { createBill } from '../../api/bills.api.js';
 import { formatINR } from '../../utils/currency.js';
 import { formatDate } from '../../utils/date.js';
+
+// ─── Sample sheet download ────────────────────────────────────────────────────
+function downloadSampleSheet() {
+  const sample = [
+    { 'Vendor Name': 'Patel Traders', 'Route': 'Kandi Bazar' },
+    { 'Vendor Name': 'Sharma Stores', 'Route': 'Phar Bazar'  },
+  ];
+  const ws = XLSX.utils.json_to_sheet(sample);
+  ws['!cols'] = [{ wch: 30 }, { wch: 24 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Vendors');
+  XLSX.writeFile(wb, 'Vendor_Upload_Sample.xlsx');
+}
+
+// ─── Bulk Upload Modal ────────────────────────────────────────────────────────
+function BulkUploadModal({ onClose, onDone }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [rows, setRows] = useState(null);    // parsed preview rows
+  const [fileName, setFileName] = useState('');
+  const [result, setResult] = useState(null); // { created, skipped, createdNames, skippedNames }
+  const [loading, setLoading] = useState(false);
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFileName(file.name);
+    setResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const wb = XLSX.read(ev.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      setRows(data);
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleUpload = async () => {
+    if (!rows?.length) return;
+    setLoading(true);
+    try {
+      const res = await bulkUploadVendors(rows);
+      setResult(res);
+      qc.invalidateQueries({ queryKey: ['vendors'] });
+      toast(`${res.created} vendor(s) created`, 'success');
+    } catch (e) {
+      toast(e.response?.data?.message || 'Upload failed', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-slide-in">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Bulk Upload Vendors</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Upload an Excel file to add vendors in one go</p>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="h-4 w-4 text-slate-400" /></button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Step 1: download sample */}
+          <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+            <span className="w-6 h-6 bg-indigo-600 text-white rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-700">Download the sample sheet</p>
+              <p className="text-xs text-slate-400 mt-0.5 mb-3">Fill in vendor details — Vendor Name is required. Route will be created if it doesn't exist.</p>
+              <button onClick={downloadSampleSheet} className="btn-secondary py-1.5 px-3 text-xs">
+                <Download className="h-3.5 w-3.5" /> Download Sample Sheet
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2: upload filled sheet */}
+          <div className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <span className="w-6 h-6 bg-slate-600 text-white rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-700">Upload your filled sheet</p>
+              <p className="text-xs text-slate-400 mt-0.5 mb-3">Existing vendor names will be skipped. New routes will be auto-created.</p>
+              <label className="cursor-pointer">
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs font-medium rounded-lg hover:border-indigo-400 hover:text-indigo-700 transition-all">
+                  <Upload className="h-3.5 w-3.5" />
+                  {fileName || 'Choose file...'}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {rows && !result && (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-600">{rows.length} rows detected</span>
+                <span className="text-xs text-slate-400">First 5 shown</span>
+              </div>
+              <div className="overflow-x-auto max-h-44 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
+                    <tr>{Object.keys(rows[0]).map((k) => <th key={k} className="px-3 py-2 text-left text-slate-500 font-semibold whitespace-nowrap">{k}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {rows.slice(0, 5).map((r, i) => (
+                      <tr key={i}>{Object.values(r).map((v, j) => <td key={j} className="px-3 py-2 text-slate-700 truncate max-w-[120px]">{String(v)}</td>)}</tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Result */}
+          {result && (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <div className="flex-1 bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                  <CheckCircle className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-emerald-700">{result.created}</p>
+                  <p className="text-xs text-emerald-600">Created</p>
+                </div>
+                <div className="flex-1 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                  <AlertCircle className="h-5 w-5 text-amber-600 mx-auto mb-1" />
+                  <p className="text-lg font-bold text-amber-700">{result.skipped}</p>
+                  <p className="text-xs text-amber-600">Skipped (already exist)</p>
+                </div>
+              </div>
+              {result.skippedNames?.length > 0 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">Skipped vendors:</p>
+                  <p className="text-xs text-amber-600">{result.skippedNames.join(', ')}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 justify-end pt-1">
+            <button onClick={onClose} className="btn-secondary">{result ? 'Close' : 'Cancel'}</button>
+            {!result && (
+              <button onClick={handleUpload} disabled={!rows?.length || loading} className="btn-primary">
+                {loading ? <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Upload className="h-4 w-4" /> Import Vendors</>}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function VendorBillsModal({ vendor, onClose }) {
   return (
@@ -308,6 +463,7 @@ export default function VendorsPage() {
   const [billModal, setBillModal] = useState(null);
   const [billsPopup, setBillsPopup] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [localVendors, setLocalVendors] = useState([]);
 
   const { data: vendors = [], isLoading } = useQuery({ queryKey: ['vendors'], queryFn: getVendors });
@@ -383,7 +539,10 @@ export default function VendorsPage() {
             {categories.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
           </select>
         )}
-        <button onClick={() => setVendorModal('new')} className="btn-primary ml-auto">
+        <button onClick={() => setBulkUploadOpen(true)} className="btn-secondary">
+          <Upload className="h-4 w-4" /> Bulk Upload
+        </button>
+        <button onClick={() => setVendorModal('new')} className="btn-primary">
           <Plus className="h-4 w-4" /> Add Vendor
         </button>
       </div>
@@ -444,6 +603,7 @@ export default function VendorsPage() {
       </DndContext>
 
       {/* Modals */}
+      {bulkUploadOpen && <BulkUploadModal onClose={() => setBulkUploadOpen(false)} onDone={() => setBulkUploadOpen(false)} />}
       {billsPopup && <VendorBillsModal vendor={billsPopup} onClose={() => setBillsPopup(null)} />}
       {vendorModal && (
         <VendorModal
