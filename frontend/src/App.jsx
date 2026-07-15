@@ -13,6 +13,7 @@ import CategoriesPage from './pages/admin/CategoriesPage.jsx';
 import RoutesPage from './pages/admin/RoutesPage.jsx';
 import SoudasPage from './pages/admin/SoudasPage.jsx';
 import SoudaMastersPage from './pages/admin/SoudaMastersPage.jsx';
+import InventoryPage from './pages/admin/InventoryPage.jsx';
 import CollectorVendorsPage from './pages/collector/CollectorVendorsPage.jsx';
 import CollectPage from './pages/collector/CollectPage.jsx';
 
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/admin/routes"        element={<ProtectedRoute role="ADMIN"><RoutesPage /></ProtectedRoute>} />
         <Route path="/admin/soudas"        element={<ProtectedRoute role="ADMIN"><SoudasPage /></ProtectedRoute>} />
         <Route path="/admin/souda-masters" element={<ProtectedRoute role="ADMIN"><SoudaMastersPage /></ProtectedRoute>} />
+        <Route path="/admin/inventory"    element={<ProtectedRoute role="ADMIN"><InventoryPage /></ProtectedRoute>} />
 
         {/* Collector routes */}
         <Route path="/collector/vendors" element={<ProtectedRoute role="COLLECTOR"><CollectorVendorsPage /></ProtectedRoute>} />

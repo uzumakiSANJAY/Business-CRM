@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, FileText, CheckCircle,
   Users, ClipboardList, PlusCircle, LogOut, TrendingUp, Tag, Navigation,
-  ShoppingBag, BookOpen, X,
+  ShoppingBag, BookOpen, Package, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
@@ -19,6 +19,7 @@ const adminLinks = [
   { to: '/admin/souda-masters',  label: 'Souda Masters',   icon: BookOpen },
   { divider: true },
   { to: '/admin/audit',          label: 'Audit Log',       icon: ClipboardList },
+  { to: '/admin/inventory',      label: 'Inventory',       icon: Package },
 ];
 
 const collectorLinks = [
