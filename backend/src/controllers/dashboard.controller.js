@@ -96,10 +96,11 @@ async function getMonthlyChart(req, res, next) {
       ORDER BY DATE_TRUNC('month', confirmed_at) ASC
     `);
 
-    // Build a map of month_date -> collected
+    // Build a map of "YYYY-MM" -> collected (month_date is a plain string from pg type parser)
     const collectedMap = {};
     for (const row of collectedRes.rows) {
-      collectedMap[row.month_date.toISOString()] = parseFloat(row.collected);
+      const key = String(row.month_date).slice(0, 7); // "2026-07"
+      collectedMap[key] = parseFloat(row.collected);
     }
 
     // Generate last 6 months array ensuring all months are represented
@@ -108,20 +109,19 @@ async function getMonthlyChart(req, res, next) {
       const d = new Date();
       d.setDate(1);
       d.setMonth(d.getMonth() - i);
-      d.setHours(0, 0, 0, 0);
+
+      const year  = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const key   = `${year}-${month}`;
 
       const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      const isoKey = new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1)).toISOString();
 
-      const billedRow = billedRes.rows.find((r) => {
-        const rd = new Date(r.month_date);
-        return rd.getFullYear() === d.getFullYear() && rd.getMonth() === d.getMonth();
-      });
+      const billedRow = billedRes.rows.find((r) => String(r.month_date).startsWith(key));
 
       months.push({
         month: monthLabel,
-        billed: billedRow ? parseFloat(billedRow.billed) : 0,
-        collected: collectedMap[isoKey] || 0,
+        billed:    billedRow ? parseFloat(billedRow.billed) : 0,
+        collected: collectedMap[key] || 0,
       });
     }
 
