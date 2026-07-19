@@ -623,6 +623,9 @@ export default function SoudasPage() {
   const [filterTrip, setFilterTrip]     = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo]     = useState('');
+  const [filterItem, setFilterItem]         = useState('');
+  const [filterCompany, setFilterCompany]   = useState('');
+  const [filterType, setFilterType]         = useState('');
   const [showFilters, setShowFilters]   = useState(false);
 
   const { data: soudas = [], isLoading } = useQuery({ queryKey: ['soudas'], queryFn: () => getSoudas() });
@@ -631,6 +634,18 @@ export default function SoudasPage() {
   const { data: dalals = [] }  = useQuery({ queryKey: ['dalals'],  queryFn: getDalals });
   const { data: routes = [] }  = useQuery({ queryKey: ['routes'],  queryFn: getRoutes });
   const { data: vehicles = [] } = useQuery({ queryKey: ['vehicles'], queryFn: getVehicles });
+
+  // Cascading filter data: companies for selected item, types for selected company
+  const { data: filterCompanies = [] } = useQuery({
+    queryKey: ['filter-item-companies', filterItem],
+    queryFn: () => getItemCompanies(filterItem),
+    enabled: !!filterItem,
+  });
+  const { data: filterTypes = [] } = useQuery({
+    queryKey: ['filter-item-types', filterCompany],
+    queryFn: () => getItemTypes(filterCompany),
+    enabled: !!filterCompany,
+  });
 
   const deleteMutation = useMutation({
     mutationFn: deleteSouda,
@@ -657,6 +672,9 @@ export default function SoudasPage() {
       || s.item_type_name?.toLowerCase().includes(q)
       || s.location?.toLowerCase().includes(q)
       || s.dalal_name?.toLowerCase().includes(q);
+    const matchItem    = !filterItem    || String(s.item_id)         === filterItem;
+    const matchCompany = !filterCompany || String(s.item_company_id) === filterCompany;
+    const matchType    = !filterType    || String(s.item_type_id)    === filterType;
     const matchDalal  = !filterDalal  || String(s.dalal_id) === filterDalal;
     const matchRoute  = !filterRoute  || s.location === filterRoute;
     const bal = parseFloat(s.balance || 0);
@@ -669,12 +687,13 @@ export default function SoudasPage() {
       const dd = d.delivery_date?.slice(0, 10);
       return (!filterDateFrom || dd >= filterDateFrom) && (!filterDateTo || dd <= filterDateTo);
     });
-    return matchSearch && matchDalal && matchRoute && matchStatus && matchCar && matchTrip && matchDate;
+    return matchSearch && matchItem && matchCompany && matchType && matchDalal && matchRoute && matchStatus && matchCar && matchTrip && matchDate;
   });
 
-  const activeFilterCount = [filterRoute, filterDalal, filterStatus, filterCar, filterTrip, filterDateFrom, filterDateTo].filter(Boolean).length;
+  const activeFilterCount = [filterItem, filterCompany, filterType, filterRoute, filterDalal, filterStatus, filterCar, filterTrip, filterDateFrom, filterDateTo].filter(Boolean).length;
 
   const clearFilters = () => {
+    setFilterItem(''); setFilterCompany(''); setFilterType('');
     setFilterRoute(''); setFilterDalal(''); setFilterStatus('');
     setFilterCar(''); setFilterTrip(''); setFilterDateFrom(''); setFilterDateTo('');
   };
@@ -842,7 +861,31 @@ export default function SoudasPage() {
       {/* Collapsible filter panel */}
       {showFilters && (
         <div className="card p-4 mb-4 animate-slide-in">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Item */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Item</label>
+              <select className="input-field" value={filterItem} onChange={(e) => { setFilterItem(e.target.value); setFilterCompany(''); setFilterType(''); }}>
+                <option value="">All Items</option>
+                {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+            {/* Company */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Company</label>
+              <select className="input-field" value={filterCompany} disabled={!filterItem} onChange={(e) => { setFilterCompany(e.target.value); setFilterType(''); }}>
+                <option value="">All Companies</option>
+                {filterCompanies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            {/* Type / Pack */}
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">Type / Pack</label>
+              <select className="input-field" value={filterType} disabled={!filterCompany} onChange={(e) => setFilterType(e.target.value)}>
+                <option value="">All Types</option>
+                {filterTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
             {/* Status */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">Status</label>
