@@ -6,6 +6,17 @@ const path = require('path');
 const { execSync } = require('child_process');
 require('dotenv').config();
 
+// Ensure the process exits on unhandled errors so Railway's ON_FAILURE
+// restart policy kicks in instead of leaving a hung/zombie process.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception — restarting:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled Promise Rejection — restarting:', reason);
+  process.exit(1);
+});
+
 // Auto-run migrations on startup in production (idempotent — safe to repeat)
 if (process.env.NODE_ENV === 'production') {
   try {
