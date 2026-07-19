@@ -649,9 +649,14 @@ export default function SoudasPage() {
   )].sort((a, b) => a - b);
 
   const filtered = soudas.filter((s) => {
-    const matchSearch = !search || s.vendor_name?.toLowerCase().includes(search.toLowerCase())
-      || s.item_name?.toLowerCase().includes(search.toLowerCase())
-      || s.location?.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchSearch = !search
+      || s.vendor_name?.toLowerCase().includes(q)
+      || s.item_name?.toLowerCase().includes(q)
+      || s.item_company_name?.toLowerCase().includes(q)
+      || s.item_type_name?.toLowerCase().includes(q)
+      || s.location?.toLowerCase().includes(q)
+      || s.dalal_name?.toLowerCase().includes(q);
     const matchDalal  = !filterDalal  || String(s.dalal_id) === filterDalal;
     const matchRoute  = !filterRoute  || s.location === filterRoute;
     const bal = parseFloat(s.balance || 0);
@@ -807,7 +812,7 @@ export default function SoudasPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             className="input-field pl-9"
-            placeholder="Search party, item, location..."
+            placeholder="Search party, item, type (15kg tin, 1 lit pch), location..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
