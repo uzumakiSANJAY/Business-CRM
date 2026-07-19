@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, X, Loader2, ShoppingBag } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { getSoudas, createSouda } from '../../api/soudas.api.js';
 import { getVendors } from '../../api/vendors.api.js';
 import { getItems } from '../../api/items.api.js';
@@ -164,12 +165,15 @@ function NewOrderModal({ onClose, onSave, loading }) {
 /* ─── Main page ─── */
 export default function CollectorSoudasPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
 
   const { data: soudas = [], isLoading } = useQuery({ queryKey: ['soudas'], queryFn: getSoudas });
 
-  // Show only today's orders
-  const todaySoudas = soudas.filter((s) => s.order_date?.slice(0, 10) === todayStr);
+  // Show only orders this collector punched today
+  const todaySoudas = soudas.filter(
+    (s) => s.order_date?.slice(0, 10) === todayStr && String(s.created_by) === String(user?.id)
+  );
 
   const createMutation = useMutation({
     mutationFn: createSouda,
