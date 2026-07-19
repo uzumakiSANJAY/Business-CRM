@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, Loader2, ShoppingBag } from 'lucide-react';
+import { Plus, X, Loader2, ShoppingBag, Pencil } from 'lucide-react';
 import Layout from '../../components/shared/Layout.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { getSoudas, createSouda } from '../../api/soudas.api.js';
+import { getSoudas, createSouda, updateSouda } from '../../api/soudas.api.js';
 import { getVendors } from '../../api/vendors.api.js';
 import { getItems } from '../../api/items.api.js';
 import { getItemCompanies } from '../../api/itemCompanies.api.js';
@@ -162,11 +162,147 @@ function NewOrderModal({ onClose, onSave, loading }) {
   );
 }
 
+/* ─── Edit Order Modal ─── */
+function EditOrderModal({ souda, onClose, onSave, loading }) {
+  const [vendorId, setVendorId]   = useState(String(souda.vendor_id));
+  const [itemId, setItemId]       = useState(String(souda.item_id));
+  const [companyId, setCompanyId] = useState(souda.item_company_id ? String(souda.item_company_id) : '');
+  const [typeId, setTypeId]       = useState(souda.item_type_id ? String(souda.item_type_id) : '');
+  const [location, setLocation]   = useState(souda.location || '');
+  const [qty, setQty]             = useState(String(souda.qty_ordered));
+  const [rate, setRate]           = useState(String(souda.rate));
+  const [dalalId, setDalalId]     = useState(souda.dalal_id ? String(souda.dalal_id) : '');
+  const [notes, setNotes]         = useState(souda.notes || '');
+
+  const { data: vendors = [] }   = useQuery({ queryKey: ['vendors'],                    queryFn: getVendors });
+  const { data: items = [] }     = useQuery({ queryKey: ['items'],                      queryFn: getItems });
+  const { data: companies = [] } = useQuery({ queryKey: ['item-companies', itemId],     queryFn: () => getItemCompanies(itemId),  enabled: !!itemId });
+  const { data: types = [] }     = useQuery({ queryKey: ['item-types', companyId],      queryFn: () => getItemTypes(companyId),   enabled: !!companyId });
+  const { data: dalals = [] }    = useQuery({ queryKey: ['dalals'],                     queryFn: getDalals });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      vendor_id: parseInt(vendorId),
+      item_id: parseInt(itemId),
+      item_company_id: companyId ? parseInt(companyId) : null,
+      item_type_id: typeId ? parseInt(typeId) : null,
+      qty_ordered: parseFloat(qty),
+      rate: parseFloat(rate),
+      location: location || null,
+      dalal_id: dalalId ? parseInt(dalalId) : null,
+      notes: notes || null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+          <h3 className="text-base font-semibold text-slate-900">Edit Order</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Date locked */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Date (locked)</label>
+            <input
+              value={new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              readOnly
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 cursor-not-allowed"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Party (Vendor) *</label>
+            <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} required
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="">Select party...</option>
+              {vendors.map((v) => <option key={v.id} value={String(v.id)}>{v.name}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Item *</label>
+              <select value={itemId} onChange={(e) => { setItemId(e.target.value); setCompanyId(''); setTypeId(''); }} required
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">Select...</option>
+                {items.map((i) => <option key={i.id} value={String(i.id)}>{i.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Company</label>
+              <select value={companyId} onChange={(e) => { setCompanyId(e.target.value); setTypeId(''); }} disabled={!itemId}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">None</option>
+                {companies.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Type / Pack</label>
+              <select value={typeId} onChange={(e) => setTypeId(e.target.value)} disabled={!companyId}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">None</option>
+                {types.map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Location</label>
+            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Route / delivery location"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Qty Ordered *</label>
+              <input type="number" step="0.01" min="0.01" value={qty} onChange={(e) => setQty(e.target.value)} required
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Rate *</label>
+              <input type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} required
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Dalal (Agent)</label>
+              <select value={dalalId} onChange={(e) => setDalalId(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">None</option>
+                {dalals.map((d) => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+              <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional..."
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={loading}
+              className="flex-1 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2">
+              {loading && <Loader2 size={14} className="animate-spin" />} Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main page ─── */
 export default function CollectorSoudasPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [editSouda, setEditSouda] = useState(null);
 
   const { data: soudas = [], isLoading } = useQuery({ queryKey: ['soudas'], queryFn: getSoudas });
 
@@ -178,6 +314,11 @@ export default function CollectorSoudasPage() {
   const createMutation = useMutation({
     mutationFn: createSouda,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['soudas'] }); setShowModal(false); },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => updateSouda(id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['soudas'] }); setEditSouda(null); },
   });
 
   const totalQty     = todaySoudas.reduce((s, o) => s + parseFloat(o.qty_ordered || 0), 0);
@@ -239,6 +380,7 @@ export default function CollectorSoudasPage() {
                     <th className="table-th text-left">Dalal</th>
                     <th className="table-th text-right">Balance</th>
                     <th className="table-th text-left">Added By</th>
+                    <th className="table-th text-center">Edit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -264,6 +406,15 @@ export default function CollectorSoudasPage() {
                           {fmt(bal)}
                         </td>
                         <td className="table-td text-slate-500 text-xs whitespace-nowrap">{s.created_by_name || '—'}</td>
+                        <td className="table-td text-center">
+                          <button
+                            onClick={() => setEditSouda(s)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            title="Edit order"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -279,6 +430,15 @@ export default function CollectorSoudasPage() {
           onClose={() => setShowModal(false)}
           onSave={(data) => createMutation.mutate(data)}
           loading={createMutation.isPending}
+        />
+      )}
+
+      {editSouda && (
+        <EditOrderModal
+          souda={editSouda}
+          onClose={() => setEditSouda(null)}
+          onSave={(data) => updateMutation.mutate({ id: editSouda.id, data })}
+          loading={updateMutation.isPending}
         />
       )}
     </Layout>

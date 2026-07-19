@@ -8,7 +8,7 @@ const {
 
 router.get('/',                          auth, getSoudas);
 router.post('/',                         auth, createSouda);                    // ADMIN + COLLECTOR
-router.put('/:id',                       auth, requireRole('ADMIN'), updateSouda);
+router.put('/:id',                       auth, updateSouda);                       // ADMIN + COLLECTOR (controller enforces own/today for collectors)
 router.delete('/:id',                    auth, requireRole('ADMIN'), deleteSouda);
 router.post('/:id/deliveries',           auth, requireRole('ADMIN'), addDelivery);
 router.delete('/:id/deliveries/:deliveryId', auth, requireRole('ADMIN'), deleteDelivery);

@@ -90,13 +90,29 @@ async function updateSouda(req, res, next) {
   try {
     const { id } = req.params;
     const { order_date, vendor_id, item_id, qty_ordered, rate, location, dalal_id, item_company_id, item_type_id, notes } = req.body;
-    const existing = await pool.query('SELECT id FROM soudas WHERE id = $1', [id]);
+    const existing = await pool.query('SELECT id, created_by, order_date FROM soudas WHERE id = $1', [id]);
     if (!existing.rows.length) return res.status(404).json({ message: 'Souda not found' });
+
+    // Collectors can only edit their own orders placed today
+    if (req.user.role === 'COLLECTOR') {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (String(existing.rows[0].created_by) !== String(req.user.id)) {
+        return res.status(403).json({ message: 'You can only edit your own orders' });
+      }
+      if (String(existing.rows[0].order_date).slice(0, 10) !== todayStr) {
+        return res.status(403).json({ message: 'You can only edit today\'s orders' });
+      }
+    }
+
+    // Collectors cannot change the date
+    const finalDate = req.user.role === 'COLLECTOR'
+      ? existing.rows[0].order_date
+      : (order_date || existing.rows[0].order_date);
 
     const result = await pool.query(
       `UPDATE soudas SET order_date=$1, vendor_id=$2, item_id=$3, qty_ordered=$4, rate=$5,
        location=$6, dalal_id=$7, item_company_id=$8, item_type_id=$9, notes=$10 WHERE id=$11 RETURNING *`,
-      [order_date, vendor_id, item_id, qty_ordered, rate,
+      [finalDate, vendor_id, item_id, qty_ordered, rate,
        location || null, dalal_id || null, item_company_id || null, item_type_id || null, notes || null, id]
     );
     await pool.query(
