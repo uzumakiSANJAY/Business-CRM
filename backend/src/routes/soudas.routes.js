@@ -7,7 +7,7 @@ const {
 } = require('../controllers/soudas.controller');
 
 router.get('/',                          auth, getSoudas);
-router.post('/',                         auth, requireRole('ADMIN'), createSouda);
+router.post('/',                         auth, createSouda);                    // ADMIN + COLLECTOR
 router.put('/:id',                       auth, requireRole('ADMIN'), updateSouda);
 router.delete('/:id',                    auth, requireRole('ADMIN'), deleteSouda);
 router.post('/:id/deliveries',           auth, requireRole('ADMIN'), addDelivery);

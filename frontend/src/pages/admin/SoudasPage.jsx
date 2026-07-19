@@ -965,6 +965,7 @@ export default function SoudasPage() {
                 <th className="table-th" style={{ background: '#e8f5e9', minWidth: '220px' }}>Deliveries</th>
                 <th className="table-th text-right">Total Del</th>
                 <th className="table-th text-right">Balance</th>
+                <th className="table-th">Added By</th>
                 <th className="table-th text-center">Actions</th>
               </tr>
             </thead>
@@ -1059,6 +1060,7 @@ export default function SoudasPage() {
                             {bal.toFixed(0)}
                           </span>
                         </td>
+                        <td className="table-td text-slate-500 text-xs whitespace-nowrap">{s.created_by_name || '—'}</td>
                         <td className="table-td">
                           <div className="flex items-center justify-center gap-1">
                             {isPending && (

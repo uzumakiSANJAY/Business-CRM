@@ -25,6 +25,7 @@ const adminLinks = [
 const collectorLinks = [
   { to: '/collector/vendors', label: 'Vendors',          icon: Building2 },
   { to: '/collector/collect', label: 'Submit Collection', icon: PlusCircle },
+  { to: '/collector/soudas',  label: 'Soudas',           icon: ShoppingBag },
 ];
 
 export default function Sidebar({ open, onClose }) {

@@ -16,6 +16,7 @@ import SoudaMastersPage from './pages/admin/SoudaMastersPage.jsx';
 import InventoryPage from './pages/admin/InventoryPage.jsx';
 import CollectorVendorsPage from './pages/collector/CollectorVendorsPage.jsx';
 import CollectPage from './pages/collector/CollectPage.jsx';
+import CollectorSoudasPage from './pages/collector/CollectorSoudasPage.jsx';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
         {/* Collector routes */}
         <Route path="/collector/vendors" element={<ProtectedRoute role="COLLECTOR"><CollectorVendorsPage /></ProtectedRoute>} />
         <Route path="/collector/collect" element={<ProtectedRoute role="COLLECTOR"><CollectPage /></ProtectedRoute>} />
+        <Route path="/collector/soudas"  element={<ProtectedRoute role="COLLECTOR"><CollectorSoudasPage /></ProtectedRoute>} />
 
         <Route path="*" element={<RootRedirect />} />
       </Routes>
