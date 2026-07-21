@@ -122,9 +122,10 @@ async function getItemLedger(req, res, next) {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT il.*, u.name AS created_by_name
+      `SELECT il.*, u.name AS created_by_name, v.name AS vendor_name
          FROM inventory_ledger il
-         LEFT JOIN users u ON u.id = il.created_by
+         LEFT JOIN users   u ON u.id = il.created_by
+         LEFT JOIN vendors v ON v.id = il.vendor_id
         WHERE il.item_id = $1
         ORDER BY il.txn_date DESC, il.created_at DESC`,
       [id]
@@ -137,7 +138,7 @@ async function getItemLedger(req, res, next) {
 
 async function addTransaction(req, res, next) {
   try {
-    const { item_id, direction, quantity, txn_date, notes } = req.body;
+    const { item_id, direction, quantity, txn_date, notes, rate, vendor_id, txn_type } = req.body;
     if (!item_id || !direction || !quantity || !txn_date) {
       return res.status(400).json({ message: 'item_id, direction, quantity, txn_date are required' });
     }
@@ -152,9 +153,10 @@ async function addTransaction(req, res, next) {
     if (!itemCheck.rows.length) return res.status(404).json({ message: 'Inventory item not found' });
 
     const result = await pool.query(
-      `INSERT INTO inventory_ledger (item_id, direction, quantity, txn_date, notes, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [item_id, direction, parseFloat(quantity), txn_date, notes || null, req.user.id]
+      `INSERT INTO inventory_ledger (item_id, direction, quantity, txn_date, notes, rate, vendor_id, txn_type, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [item_id, direction, parseFloat(quantity), txn_date, notes || null,
+       rate ? parseFloat(rate) : null, vendor_id || null, txn_type || 'MANUAL', req.user.id]
     );
 
     res.status(201).json({ id: result.rows[0].id });
@@ -166,7 +168,7 @@ async function addTransaction(req, res, next) {
 async function updateTransaction(req, res, next) {
   try {
     const { id } = req.params;
-    const { direction, quantity, txn_date, notes } = req.body;
+    const { direction, quantity, txn_date, notes, rate, vendor_id } = req.body;
     if (direction && !['INWARD', 'OUTWARD'].includes(direction)) {
       return res.status(400).json({ message: 'direction must be INWARD or OUTWARD' });
     }
@@ -181,9 +183,12 @@ async function updateTransaction(req, res, next) {
           SET direction = COALESCE($1, direction),
               quantity  = COALESCE($2, quantity),
               txn_date  = COALESCE($3, txn_date),
-              notes     = $4
-        WHERE id = $5`,
-      [direction || null, quantity ? parseFloat(quantity) : null, txn_date || null, notes ?? null, id]
+              notes     = $4,
+              rate      = $5,
+              vendor_id = $6
+        WHERE id = $7`,
+      [direction || null, quantity ? parseFloat(quantity) : null, txn_date || null,
+       notes ?? null, rate ? parseFloat(rate) : null, vendor_id || null, id]
     );
     res.json({ message: 'Updated' });
   } catch (err) {
